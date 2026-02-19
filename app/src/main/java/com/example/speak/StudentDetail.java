@@ -1507,7 +1507,8 @@ public class StudentDetail extends AppCompatActivity {
         android.util.Log.d("StudentDetail", String.format("📖 Total words in passage: %d", expectedWords.length));
         
         // ── Initialize robust detection components ────────────────────────────────
-        phoneticMatcher = new PhoneticMatcher();
+        // PhoneticMatcher removed - was adding latency to real-time highlighting
+        // phoneticMatcher = new PhoneticMatcher();
         awaitingWordIndex = 0;
         timedOutWords.clear();
         
@@ -1568,41 +1569,14 @@ public class StudentDetail extends AppCompatActivity {
             @Override
             public void onWordRecognized(String recognizedWord, String expectedWord, int wordIndex, 
                                         float pronunciationScore, boolean isCorrect) {
-                // ── Phonetic validation: Vosk said it matched, but did it REALLY? ──────
-                // Vosk normalizes slang ("singin" → "singing") and marks it correct.
-                // We re-check using phonetic similarity to catch those false positives.
-                PhoneticMatcher.Result phonetic = phoneticMatcher.match(recognizedWord, expectedWord);
-                
-                boolean voskSaysCorrect    = isCorrect;
-                boolean phoneticSaysClose  = phonetic.isCloseEnough;
-                boolean phoneticExactMatch = phonetic.editDistance == 0;
-                
-                // Decision logic:
-                //  - Exact match              → CORRECT
-                //  - Vosk correct + phonetic close → CORRECT (Vosk normalized minor variation, OK)
-                //  - Vosk correct + phonetic FAR  → WRONG   (Vosk hallucinated / over-normalized)
-                //  - Vosk wrong  + phonetic close → WRONG   (child attempted but mispronounced)
-                //  - Vosk wrong  + phonetic far   → WRONG   (completely different sound)
-                boolean finalCorrect;
-                if (phoneticExactMatch) {
-                    finalCorrect = true;
-                } else if (voskSaysCorrect && phonetic.similarity >= 0.75f) {
-                    // Vosk normalized a minor variation (e.g. "walkin" → "walking") — accept
-                    finalCorrect = true;
-                } else if (voskSaysCorrect && phonetic.similarity < 0.75f) {
-                    // Vosk over-normalized a real mispronunciation — reject
-                    android.util.Log.w("StudentDetail",
-                        String.format("🚫 Vosk false-positive rejected: heard '%s' for '%s' (sim=%.2f)",
-                            recognizedWord, expectedWord, phonetic.similarity));
-                    finalCorrect = false;
-                } else {
-                    finalCorrect = false;
-                }
+                // ── FAST PATH: Trust Vosk results for real-time responsiveness ────────
+                // PhoneticMatcher was adding latency - removed for speed
+                // RF model will do final pronunciation analysis after reading completes
+                boolean finalCorrect = isCorrect;  // Trust Vosk during real-time reading
                 
                 android.util.Log.d("StudentDetail", String.format(
-                    "📝 Word %d '%s' → heard '%s' | vosk=%b | phonetic=%s | final=%b",
-                    wordIndex, expectedWord, recognizedWord,
-                    voskSaysCorrect, phonetic.toString(), finalCorrect));
+                    "📝 Word %d '%s' → heard '%s' | correct=%b",
+                    wordIndex, expectedWord, recognizedWord, finalCorrect));
                 
                 // ── Confirm with watchdog (prevents timeout firing for this word) ──────
                 wordWatchdog.wordConfirmed();
