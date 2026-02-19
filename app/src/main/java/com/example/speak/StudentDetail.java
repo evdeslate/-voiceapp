@@ -1507,46 +1507,14 @@ public class StudentDetail extends AppCompatActivity {
         android.util.Log.d("StudentDetail", String.format("📖 Total words in passage: %d", expectedWords.length));
         
         // ── Initialize robust detection components ────────────────────────────────
-        // PhoneticMatcher removed - was adding latency to real-time highlighting
-        // phoneticMatcher = new PhoneticMatcher();
+        // PhoneticMatcher removed - was adding latency
+        // WordTimeoutWatchdog removed - was causing buffering/stops
+        // Let Vosk handle continuous recognition naturally
         awaitingWordIndex = 0;
         timedOutWords.clear();
         
-        // Watchdog: auto-advance when child mumbles or skips a word
-        wordWatchdog = new WordTimeoutWatchdog((timedOutIndex, timedOutWordText) -> {
-            // Runs on main thread (Handler)
-            android.util.Log.w("StudentDetail",
-                String.format("⏰ Word %d '%s' timed out — marking as mispronounced",
-                    timedOutIndex, timedOutWordText));
-            
-            timedOutWords.add(timedOutIndex);
-            
-            if (timedOutIndex >= 0 && timedOutIndex < wordCorrect.length) {
-                wordFinished[timedOutIndex] = true;
-                // For timeouts, we CAN set wordScored=true immediately since they're definitively wrong
-                // But to keep consistent yellow-then-red flow, let RF analysis finalize it
-                // wordScored[timedOutIndex] = true;  // ← Let RF analysis set this
-                wordCorrect[timedOutIndex]  = false; // timed-out = mispronounced
-            }
-            
-            // Highlight this word red immediately
-            if (passageContentView != null) {
-                redrawHighlights(passageContentView);
-            }
-            
-            // Advance to next word — reading continues
-            awaitingWordIndex = timedOutIndex + 1;
-            if (awaitingWordIndex < expectedWords.length) {
-                android.util.Log.d("StudentDetail", String.format("⏭️ Moving to next word %d: '%s'", 
-                    awaitingWordIndex, expectedWords[awaitingWordIndex]));
-                wordWatchdog.expectWord(awaitingWordIndex, expectedWords[awaitingWordIndex]);
-            } else {
-                android.util.Log.d("StudentDetail", "✅ All words processed (via timeout)");
-            }
-        });
-        
-        // Start watching for the first word
-        wordWatchdog.expectWord(0, expectedWords[0]);
+        // No watchdog - continuous flow recognition
+        // Words will highlight as Vosk recognizes them naturally
         
         // Set recording state
         isCurrentlyRecording = true;
@@ -1578,9 +1546,7 @@ public class StudentDetail extends AppCompatActivity {
                     "📝 Word %d '%s' → heard '%s' | correct=%b",
                     wordIndex, expectedWord, recognizedWord, finalCorrect));
                 
-                // ── Confirm with watchdog (prevents timeout firing for this word) ──────
-                wordWatchdog.wordConfirmed();
-                
+                // Update tracking
                 currentWordsRead    = wordIndex + 1;
                 currentTotalWords   = expectedWords.length;
                 awaitingWordIndex   = wordIndex + 1;
@@ -1607,15 +1573,9 @@ public class StudentDetail extends AppCompatActivity {
                     }
                 });
                 
-                // ── Start watchdog for the NEXT word ──────────────────────────────────
-                if (awaitingWordIndex < expectedWords.length) {
-                    wordWatchdog.expectWord(awaitingWordIndex, expectedWords[awaitingWordIndex]);
-                }
-                
-                // ── Check if reading is complete ──────────────────────────────────────
+                // Check if reading is complete
                 if (wordIndex >= expectedWords.length - 1) {
                     android.util.Log.d("StudentDetail", "🎉 Last word reached!");
-                    wordWatchdog.stop();
                     new Handler(Looper.getMainLooper()).postDelayed(() -> {
                         if (voskRecognizer != null && voskRecognizer.isRecognizing()) {
                             voskRecognizer.stopRecognition();
@@ -2327,12 +2287,6 @@ public class StudentDetail extends AppCompatActivity {
         android.util.Log.d("StudentDetail", "🛑 Stopping Vosk recognition...");
         
         try {
-            // Stop watchdog
-            if (wordWatchdog != null) {
-                wordWatchdog.stop();
-                android.util.Log.d("StudentDetail", "✅ Stopped word timeout watchdog");
-            }
-            
             // Stop Vosk recognizer
             if (voskRecognizer != null && voskRecognizer.isRecognizing()) {
                 voskRecognizer.stopRecognition();
