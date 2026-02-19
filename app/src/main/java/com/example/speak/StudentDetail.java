@@ -1537,14 +1537,14 @@ public class StudentDetail extends AppCompatActivity {
             @Override
             public void onWordRecognized(String recognizedWord, String expectedWord, int wordIndex, 
                                         float pronunciationScore, boolean isCorrect) {
-                // ── FAST PATH: Trust Vosk results for real-time responsiveness ────────
-                // PhoneticMatcher was adding latency - removed for speed
-                // RF model will do final pronunciation analysis after reading completes
-                boolean finalCorrect = isCorrect;  // Trust Vosk during real-time reading
+                // ── FAST PATH: Check mispronunciation overrides (O(1) HashMap lookup) ──
+                // Catches common Filipino mispronunciations that Vosk normalizes incorrectly
+                boolean finalCorrect = MispronunciationOverride.evaluate(
+                    recognizedWord, expectedWord, isCorrect);
                 
                 android.util.Log.d("StudentDetail", String.format(
-                    "📝 Word %d '%s' → heard '%s' | correct=%b",
-                    wordIndex, expectedWord, recognizedWord, finalCorrect));
+                    "📝 Word %d '%s' → heard '%s' | vosk=%b | final=%b",
+                    wordIndex, expectedWord, recognizedWord, isCorrect, finalCorrect));
                 
                 // Update tracking
                 currentWordsRead    = wordIndex + 1;
