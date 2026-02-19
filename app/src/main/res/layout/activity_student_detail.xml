@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F5F5F5">
+
+    <!-- Header Section -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/headerLayout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:minHeight="@dimen/header_height"
+        android:background="@drawable/frame_background"
+        android:backgroundTint="#4DD0E1"
+        android:padding="@dimen/spacing_medium"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- Student Profile Image -->
+        <ImageView
+            android:id="@+id/studentProfileImage"
+            android:layout_width="@dimen/avatar_size_small"
+            android:layout_height="@dimen/avatar_size_small"
+            android:layout_marginStart="@dimen/spacing_small"
+            android:layout_marginTop="@dimen/spacing_small"
+            android:background="@drawable/ic_launcher_background"
+            android:src="@android:drawable/ic_menu_camera"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- Student Name -->
+        <TextView
+            android:id="@+id/studentNameText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/spacing_medium"
+            android:layout_marginEnd="@dimen/spacing_small"
+            android:fontFamily="@font/happy_monkey"
+            android:text="Student 1"
+            android:textColor="#FFFFFF"
+            android:textSize="@dimen/text_size_title"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toStartOf="@+id/speakLogo"
+            app:layout_constraintStart_toEndOf="@+id/studentProfileImage"
+            app:layout_constraintTop_toTopOf="@+id/studentProfileImage" />
+
+        <!-- Grade Text -->
+        <TextView
+            android:id="@+id/gradeText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/spacing_medium"
+            android:layout_marginEnd="@dimen/spacing_small"
+            android:fontFamily="@font/happy_monkey"
+            android:text="Grade 5-A"
+            android:textColor="#FFFFFF"
+            android:textSize="@dimen/text_size_large"
+            app:layout_constraintEnd_toStartOf="@+id/speakLogo"
+            app:layout_constraintStart_toEndOf="@+id/studentProfileImage"
+            app:layout_constraintTop_toBottomOf="@+id/studentNameText" />
+
+        <!-- SPEAK Logo -->
+        <ImageView
+            android:id="@+id/speakLogo"
+            android:layout_width="@dimen/avatar_size_medium"
+            android:layout_height="@dimen/avatar_size_medium"
+            android:layout_marginEnd="@dimen/spacing_small"
+            android:src="@drawable/speak_logo"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/studentProfileImage" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Select Passage Section -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/selectPassageLayout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/spacing_xlarge"
+        android:layout_marginTop="@dimen/spacing_large"
+        android:layout_marginEnd="@dimen/spacing_xlarge"
+        android:background="@drawable/frame_background"
+        android:backgroundTint="#FFFFFF"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?attr/selectableItemBackground"
+        android:padding="@dimen/spacing_medium"
+        android:elevation="@dimen/card_elevation"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/headerLayout">
+
+        <TextView
+            android:id="@+id/selectPassageText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/happy_monkey"
+            android:text="Select Passage"
+            android:textColor="#424242"
+            android:textSize="@dimen/text_size_large"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toStartOf="@+id/dropdownIcon"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <ImageView
+            android:id="@+id/dropdownIcon"
+            android:layout_width="@dimen/icon_size_medium"
+            android:layout_height="@dimen/icon_size_medium"
+            android:src="@drawable/ic_arrow_drop_down"
+            android:tint="#4DD0E1"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Progress Section -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/progressSection"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/spacing_large"
+        android:layout_marginEnd="@dimen/spacing_xlarge"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/selectPassageLayout">
+
+        <!-- Progress Circle -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/progressCircle"
+            android:layout_width="@dimen/progress_circle_size"
+            android:layout_height="@dimen/progress_circle_size"
+            android:background="@drawable/ic_launcher_background"
+            android:backgroundTint="#4DD0E1"
+            android:elevation="@dimen/card_elevation"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <TextView
+                android:id="@+id/progressPercentage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/happy_monkey"
+                android:text="97%"
+                android:textColor="#FFFFFF"
+                android:textSize="@dimen/text_size_title"
+                android:textStyle="bold"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- Fast Reader Text -->
+        <TextView
+            android:id="@+id/fastReaderText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_small"
+            android:fontFamily="@font/happy_monkey"
+            android:text="FAST READER"
+            android:textColor="#4CAF50"
+            android:textSize="@dimen/text_size_large"
+            android:textStyle="bold"
+            app:layout_constraintEnd_toEndOf="@+id/progressCircle"
+            app:layout_constraintStart_toStartOf="@+id/progressCircle"
+            app:layout_constraintTop_toBottomOf="@+id/progressCircle" />
+
+        <!-- Current Progress Text -->
+        <TextView
+            android:id="@+id/currentProgressText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_tiny"
+            android:fontFamily="@font/happy_monkey"
+            android:text="Current Progress"
+            android:textColor="#757575"
+            android:textSize="@dimen/text_size_normal"
+            app:layout_constraintEnd_toEndOf="@+id/fastReaderText"
+            app:layout_constraintStart_toStartOf="@+id/fastReaderText"
+            app:layout_constraintTop_toBottomOf="@+id/fastReaderText" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Reading Activity Section -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/readingActivityLayout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/spacing_xlarge"
+        android:layout_marginTop="@dimen/spacing_xlarge"
+        android:layout_marginEnd="@dimen/spacing_xlarge"
+        android:layout_marginBottom="@dimen/spacing_xlarge"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/progressSection"
+        app:layout_constraintVertical_bias="0.0">
+
+        <!-- Reading Character Button -->
+        <ImageButton
+            android:id="@+id/readingCharacterButton"
+            android:layout_width="@dimen/avatar_size_xlarge"
+            android:layout_height="@dimen/avatar_size_xlarge"
+            android:background="@android:color/transparent"
+            android:scaleType="fitCenter"
+            android:src="@drawable/rabbit_reading"
+            app:layout_constraintBottom_toTopOf="@+id/clickToReadLayout"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- Click to Read Section -->
+        <LinearLayout
+            android:id="@+id/clickToReadLayout"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/spacing_medium"
+            android:gravity="center"
+            android:orientation="horizontal"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/readingCharacterButton">
+
+            <!-- Hand Pointer Icon -->
+            <ImageView
+                android:id="@+id/handPointerIcon"
+                android:layout_width="@dimen/icon_size_medium"
+                android:layout_height="@dimen/icon_size_medium"
+                android:layout_marginEnd="@dimen/spacing_small"
+                android:src="@android:drawable/ic_menu_edit"
+                android:tint="#4DD0E1" />
+
+            <!-- Click to Read Text -->
+            <TextView
+                android:id="@+id/clickToReadText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/happy_monkey"
+                android:text="Click to read"
+                android:textColor="#424242"
+                android:textSize="@dimen/text_size_large"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

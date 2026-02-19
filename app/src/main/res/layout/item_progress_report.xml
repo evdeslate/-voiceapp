@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="4dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <!-- Progress Indicator (Color Bar) -->
+        <View
+            android:id="@+id/progressIndicator"
+            android:layout_width="4dp"
+            android:layout_height="0dp"
+            android:background="#2196F3"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <!-- Student Name -->
+        <TextView
+            android:id="@+id/studentNameText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Student Name"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="#212121"
+            android:layout_marginStart="12dp"
+            app:layout_constraintStart_toEndOf="@id/progressIndicator"
+            app:layout_constraintEnd_toStartOf="@id/overallAverageText"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- Overall Average -->
+        <TextView
+            android:id="@+id/overallAverageText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="85%"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="#2196F3"
+            android:layout_marginStart="8dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- Grade and Section -->
+        <TextView
+            android:id="@+id/gradeText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Grade 1 - A"
+            android:textSize="14sp"
+            android:textColor="#757575"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="4dp"
+            app:layout_constraintStart_toEndOf="@id/progressIndicator"
+            app:layout_constraintEnd_toStartOf="@id/totalSessionsText"
+            app:layout_constraintTop_toBottomOf="@id/studentNameText" />
+
+        <!-- Total Sessions -->
+        <TextView
+            android:id="@+id/totalSessionsText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="5 sessions"
+            android:textSize="12sp"
+            android:textColor="#757575"
+            android:layout_marginTop="4dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/overallAverageText" />
+
+        <!-- Divider -->
+        <View
+            android:id="@+id/divider"
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:background="#E0E0E0"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="12dp"
+            app:layout_constraintStart_toEndOf="@id/progressIndicator"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/gradeText" />
+
+        <!-- Accuracy -->
+        <TextView
+            android:id="@+id/accuracyText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Accuracy: 92%"
+            android:textSize="14sp"
+            android:textColor="#424242"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="12dp"
+            app:layout_constraintStart_toEndOf="@id/progressIndicator"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/divider" />
+
+        <!-- Pronunciation -->
+        <TextView
+            android:id="@+id/pronunciationText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Pronunciation: 85%"
+            android:textSize="14sp"
+            android:textColor="#424242"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="4dp"
+            app:layout_constraintStart_toEndOf="@id/progressIndicator"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/accuracyText" />
+
+        <!-- Latest Session -->
+        <TextView
+            android:id="@+id/latestSessionText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="Latest: Cat and Mouse (Feb 12, 2026)"
+            android:textSize="12sp"
+            android:textColor="#9E9E9E"
+            android:textStyle="italic"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="8dp"
+            app:layout_constraintStart_toEndOf="@id/progressIndicator"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/pronunciationText"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</androidx.cardview.widget.CardView>

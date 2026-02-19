@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "292568289688",
+    "firebase_url": "https://speak-ba9df-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "speak-ba9df",
+    "storage_bucket": "speak-ba9df.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:292568289688:android:6bc5fbaec490124c929bed",
+        "android_client_info": {
+          "package_name": "com.example.speak"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "292568289688-le4p520t176l7g4h8sau227fjla1nfc8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCbswocq0ssG01h1Mr6Uof3sDEC9jcjBrA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "292568289688-le4p520t176l7g4h8sau227fjla1nfc8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
