@@ -1522,7 +1522,9 @@ public class StudentDetail extends AppCompatActivity {
             
             if (timedOutIndex >= 0 && timedOutIndex < wordCorrect.length) {
                 wordFinished[timedOutIndex] = true;
-                wordScored[timedOutIndex]   = true;  // scored immediately as wrong
+                // For timeouts, we CAN set wordScored=true immediately since they're definitively wrong
+                // But to keep consistent yellow-then-red flow, let RF analysis finalize it
+                // wordScored[timedOutIndex] = true;  // ← Let RF analysis set this
                 wordCorrect[timedOutIndex]  = false; // timed-out = mispronounced
             }
             
@@ -1614,12 +1616,13 @@ public class StudentDetail extends AppCompatActivity {
                 runOnUiThread(() -> {
                     if (wordIndex >= 0 && wordIndex < wordCorrect.length) {
                         wordFinished[wordIndex] = true;
-                        wordScored[wordIndex]   = true;    // scored immediately — no waiting for RF
-                        wordCorrect[wordIndex]  = result;
+                        // DON'T set wordScored yet - let it show YELLOW until RF analysis completes
+                        // wordScored[wordIndex] = true;  // ← REMOVED: This was skipping yellow highlighting
+                        wordCorrect[wordIndex]  = result;  // Store result for RF to use later
                         isProcessingWord        = false;
                         
                         if (passageContentView != null) {
-                            redrawHighlights(passageContentView);
+                            redrawHighlights(passageContentView);  // Will show YELLOW (finished but not scored)
                         }
                     }
                     
