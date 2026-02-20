@@ -204,6 +204,7 @@ public class VoskMFCCRecognizer {
         Log.d(TAG, "✅ VoskMFCCRecognizer initialized with confidence-based sampling + audio preprocessing");
         Log.d(TAG, String.format("   Circular buffer: %d seconds capacity", MAX_AUDIO_BUFFER_SECONDS));
         Log.d(TAG, "   Audio preprocessing: noise gate + bandpass filter enabled");
+        Log.d(TAG, "   ONNX Random Forest: " + (onnxRandomForestScorer != null && onnxRandomForestScorer.isReady() ? "Available" : "Not available (using fallback)"));
     }
     
     /**
