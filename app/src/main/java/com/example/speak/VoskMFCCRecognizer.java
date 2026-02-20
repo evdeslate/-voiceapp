@@ -563,6 +563,7 @@ public class VoskMFCCRecognizer {
                         if (partial.isEmpty()) {
                             Log.w(TAG, "⚠️ Empty partial result");
                             Log.w(TAG, "JSON keys: " + json.keys().toString());
+                            Log.w(TAG, "Full JSON: " + hypothesis);
                         }
                         
                         // Partial results are for UI preview ONLY - do NOT process for scoring
