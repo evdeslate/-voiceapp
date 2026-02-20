@@ -552,6 +552,8 @@ public class VoskMFCCRecognizer {
                             partial = json.optString("partial", "");
                             if (!partial.isEmpty()) {
                                 Log.d(TAG, "✅ Extracted partial from json.partial: '" + partial + "'");
+                            } else {
+                                Log.w(TAG, "⚠️ Partial field exists but is empty");
                             }
                         }
                         
