@@ -1923,7 +1923,7 @@ public class VoskMFCCRecognizer {
             
             Log.d(TAG, String.format("  Word %d '%s': %s (%.0f%% confidence, %.2fs-%.2fs)", 
                 wordIndex, expectedWord, isCorrect ? "✅ CORRECT" : "❌ INCORRECT", 
-                result.getConfidence() * 100, timestamp.startTime, timestamp.endTime));
+                confidence * 100, timestamp.startTime, timestamp.endTime));
         }
         
         Log.d(TAG, String.format("✅ Re-analysis complete: %d succeeded, %d failed", successCount, failCount));
