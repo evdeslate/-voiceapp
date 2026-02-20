@@ -1913,11 +1913,22 @@ public class VoskMFCCRecognizer {
             // Get expected word
             String expectedWord = wordIndex < expectedWords.length ? expectedWords[wordIndex] : timestamp.word;
             
-            // Analyze with ONNX Random Forest
-            ONNXRandomForestScorer.PronunciationResult result = 
-                onnxRandomForestScorer.scorePronunciation(audioSegment, expectedWord);
+            // Analyze with ONNX Random Forest (if available)
+            boolean isCorrect;
+            float confidence;
             
-            boolean isCorrect = result.isCorrect();
+            if (onnxRandomForestScorer != null && onnxRandomForestScorer.isReady()) {
+                ONNXRandomForestScorer.PronunciationResult result = 
+                    onnxRandomForestScorer.scorePronunciation(audioSegment, expectedWord);
+                
+                isCorrect = result.isCorrect();
+                confidence = result.getConfidence();
+            } else {
+                // Fallback: use confidence threshold (low confidence = likely incorrect)
+                isCorrect = timestamp.confidence >= 0.7f;
+                confidence = timestamp.confidence;
+            }
+            
             results.put(wordIndex, isCorrect);
             successCount++;
             
