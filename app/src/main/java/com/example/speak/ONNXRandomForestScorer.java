@@ -19,7 +19,7 @@ import java.util.Map;
  */
 public class ONNXRandomForestScorer {
     private static final String TAG = "ONNXRFScorer";
-    private static final String MODEL_PATH = "rf_model.onnx"; // Using new RF model
+    private static final String MODEL_PATH = "rf_pipeline.onnx"; // Using pipeline model with built-in scaler
     
     public static final int INCORRECT_PRONUNCIATION = 0;
     public static final int CORRECT_PRONUNCIATION = 1;
@@ -52,10 +52,29 @@ public class ONNXRandomForestScorer {
             Log.d(TAG, "✅✅✅ ONNX Random Forest model loaded successfully and ready!");
             logModelInfo();
             
+        } catch (OrtException e) {
+            // Handle ONNX-specific errors (like IR version mismatch)
+            if (e.getMessage() != null && e.getMessage().contains("IR version")) {
+                Log.e(TAG, "❌ ONNX Model IR version incompatibility detected!");
+                Log.e(TAG, "   The ONNX model was exported with a newer version than supported.");
+                Log.e(TAG, "   Current ONNX Runtime: 1.16.3 (supports IR version up to 9)");
+                Log.e(TAG, "   Model requires: IR version 10+");
+                Log.e(TAG, "   Solution: Re-export the model with ONNX opset_version=13 or lower");
+                Log.w(TAG, "⚠️  Continuing WITHOUT ONNX Random Forest - using fallback scoring");
+            } else {
+                Log.e(TAG, "❌ ONNX Runtime error: " + e.getMessage(), e);
+            }
+            isModelLoaded = false;
         } catch (Exception e) {
             Log.e(TAG, "❌❌❌ Failed to load ONNX model: " + e.getMessage(), e);
             e.printStackTrace();
             isModelLoaded = false;
+        }
+        
+        // Log final status
+        if (!isModelLoaded) {
+            Log.w(TAG, "⚠️  ONNX Random Forest NOT available - app will use fallback pronunciation scoring");
+            Log.w(TAG, "   Speech recognition will still work, but pronunciation scoring may be less accurate");
         }
     }
     
