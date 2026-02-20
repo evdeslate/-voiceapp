@@ -1,7 +1,9 @@
 package com.example.speak;
 
 import android.app.Application;
+import android.content.res.Configuration;
 import android.util.Log;
+import androidx.appcompat.app.AppCompatDelegate;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.database.FirebaseDatabase;
 import org.vosk.Model;
@@ -13,6 +15,10 @@ import java.io.File;
  * This ensures Firebase is properly initialized before any activities start.
  * 
  * Also loads Vosk model once at startup (singleton pattern) to avoid repeated loading.
+ * 
+ * UI Configuration:
+ * - Forces light theme (ignores device dark mode)
+ * - Disables font scaling (ignores device font size settings)
  */
 public class SpeakApplication extends Application {
     private static final String TAG = "SpeakApplication";
@@ -26,6 +32,10 @@ public class SpeakApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        
+        // Force light theme globally (disable dark mode)
+        AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
+        Log.d(TAG, "✅ Forced light theme globally");
         
         Log.d(TAG, "Initializing Firebase...");
         
@@ -55,6 +65,20 @@ public class SpeakApplication extends Application {
         
         // Load Vosk model in background thread (singleton pattern)
         loadVoskModelAsync();
+    }
+    
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        
+        // Override font scale to prevent UI scattering
+        if (newConfig.fontScale != 1.0f) {
+            Log.d(TAG, "⚠️ Device font scale changed to " + newConfig.fontScale + ", forcing 1.0");
+            newConfig.fontScale = 1.0f;
+            
+            // Apply configuration
+            getResources().updateConfiguration(newConfig, getResources().getDisplayMetrics());
+        }
     }
     
     /**

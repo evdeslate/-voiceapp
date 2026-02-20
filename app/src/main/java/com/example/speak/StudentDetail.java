@@ -38,6 +38,7 @@ public class StudentDetail extends AppCompatActivity {
     private ImageView studentProfileImage;
 
     private ImageView speakLogo;
+    private TextView passageContentView; // Reference to passage text view for highlighting updates
     
     // Select Passage Section
     private ConstraintLayout selectPassageLayout;
@@ -62,16 +63,14 @@ public class StudentDetail extends AppCompatActivity {
     private int studentAvatar;
     private String teacherName;
     
-    // Speech Recognition - Using Vosk + MFCC (offline, combined system)
+    // Speech Recognition - Using Vosk + MFCC (offline, lightweight)
     private VoskMFCCRecognizer voskRecognizer; // Vosk for word detection + MFCC for pronunciation
+    private boolean isVoskModelReady = false;
     
-    // MFCC Pronunciation Scoring (integrated with Vosk)
+    // MFCC Pronunciation Scoring
     private MFCCExtractor mfccExtractor;
     private MFCCPronunciationScorer mfccScorer;
     private float lastMFCCScore = 0.0f;
-    
-    // Vosk model initialization state
-    private boolean isVoskModelReady = false;
     
     // Reading session tracking
     private int currentTotalWords = 0;
@@ -126,10 +125,6 @@ public class StudentDetail extends AppCompatActivity {
     private Toast currentToast;
     private long lastToastTime = 0;
     private static final long TOAST_INTERVAL = 1500; // 1.5 seconds between toasts
-    
-    // ── NEW: Robust word detection components ───────────────────────────────── 
-    private PhoneticMatcher phoneticMatcher;
-    private WordTimeoutWatchdog wordWatchdog;
     
     // Index of the word we are currently WAITING for Vosk to confirm
     private int awaitingWordIndex = 0;
@@ -218,7 +213,7 @@ public class StudentDetail extends AppCompatActivity {
                         isVoskModelReady = true;
                         android.util.Log.d("StudentDetail", "✅ Vosk model loaded and ready");
                         runOnUiThread(() -> {
-                            Toast.makeText(StudentDetail.this, "✅ Speech recognition ready", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(StudentDetail.this, "✅ Speech recognition ready (Vosk)", Toast.LENGTH_SHORT).show();
                         });
                     }
                     
@@ -238,19 +233,7 @@ public class StudentDetail extends AppCompatActivity {
             }
             
             // Using Vosk + MFCC for speech recognition
-            android.util.Log.d("StudentDetail", "ℹ️ Using Vosk + MFCC as the primary speech system");
-            
-            // Test basic speech recognition availability
-            try {
-                if (android.speech.SpeechRecognizer.isRecognitionAvailable(this)) {
-                    android.util.Log.d("StudentDetail", "✅ Android Speech Recognition is available");
-                } else {
-                    android.util.Log.w("StudentDetail", "⚠️ Android Speech Recognition is NOT available");
-                    Toast.makeText(this, "⚠️ Speech recognition not available on this device", Toast.LENGTH_LONG).show();
-                }
-            } catch (Exception e) {
-                android.util.Log.e("StudentDetail", "❌ Error checking speech recognition availability: " + e.getMessage());
-            }
+            android.util.Log.d("StudentDetail", "ℹ️ Using Vosk + MFCC as the speech system");
             
             android.util.Log.d("StudentDetail", "=== SPEECH RECOGNITION INITIALIZATION COMPLETE ===");
             
@@ -315,7 +298,7 @@ public class StudentDetail extends AppCompatActivity {
         initialInfo.append("Vosk Recognizer: " + (voskRecognizer != null ? "✅ Available" : "❌ NULL") + "\n");
         initialInfo.append("Vosk Model Ready: " + (isVoskModelReady ? "✅ Yes" : "❌ No") + "\n");
         initialInfo.append("MFCC Scorer: " + (mfccScorer != null ? "✅ Available" : "❌ NULL") + "\n");
-        initialInfo.append("\nℹ️ Note: Using Vosk + MFCC for speech recognition\n");
+        initialInfo.append("\nℹ️ Note: Using Vosk + MFCC + MispronunciationOverride\n");
         
         initialInfo.append("\n🎤 READY FOR SPEECH TEST\n");
         initialInfo.append("Click 'Start 10-Second Test' and speak clearly.\n");
@@ -1351,12 +1334,15 @@ public class StudentDetail extends AppCompatActivity {
                 if (actualCorrectWords >= 0 && actualIncorrectWords >= 0) {
                     correctWords = actualCorrectWords;
                     incorrectWords = actualIncorrectWords;
-                    android.util.Log.d("StudentDetail", "📊 Using ACTUAL counts from speech recognition");
+                    android.util.Log.d("StudentDetail", "📊 Using ACTUAL counts from speech recognition (from database)");
+                    android.util.Log.d("StudentDetail", "📊   Source: onSessionSaved callback → currentCorrectWords/currentIncorrectWords");
+                    android.util.Log.d("StudentDetail", "📊   These values match what's saved in Firebase and shown in Progress Reports");
                 } else {
                     // Fallback to estimated calculation
                     correctWords = (int) (wordsRead * accuracy);
                     incorrectWords = wordsRead - correctWords;
-                    android.util.Log.d("StudentDetail", "📊 Using ESTIMATED counts (fallback)");
+                    android.util.Log.d("StudentDetail", "📊 Using ESTIMATED counts (fallback - database not available)");
+                    android.util.Log.w("StudentDetail", "⚠️ WARNING: Results modal may not match Progress Reports (using estimates)");
                 }
                 
                 // Calculate accuracy percentage for display
@@ -1476,7 +1462,7 @@ public class StudentDetail extends AppCompatActivity {
         }
         
         // Get the passage content TextView for highlighting
-        final TextView passageContentView = readingModal.findViewById(R.id.passageContent);
+        passageContentView = readingModal.findViewById(R.id.passageContent);
         if (passageContentView == null) {
             android.util.Log.e("StudentDetail", "PassageContentView is NULL!");
             Toast.makeText(this, "❌ Cannot find passage text view", Toast.LENGTH_LONG).show();
@@ -1538,7 +1524,7 @@ public class StudentDetail extends AppCompatActivity {
             public void onWordRecognized(String recognizedWord, String expectedWord, int wordIndex, 
                                         float pronunciationScore, boolean isCorrect) {
                 // ── FAST PATH: Check mispronunciation overrides (O(1) HashMap lookup) ──
-                // Catches common Filipino mispronunciations that Vosk normalizes incorrectly
+                // Catches common Filipino mispronunciations that Vosk might normalize
                 boolean finalCorrect = MispronunciationOverride.evaluate(
                     recognizedWord, expectedWord, isCorrect);
                 
@@ -1556,8 +1542,7 @@ public class StudentDetail extends AppCompatActivity {
                 runOnUiThread(() -> {
                     if (wordIndex >= 0 && wordIndex < wordCorrect.length) {
                         wordFinished[wordIndex] = true;
-                        // DON'T set wordScored yet - let it show YELLOW until RF analysis completes
-                        // wordScored[wordIndex] = true;  // ← REMOVED: This was skipping yellow highlighting
+                        wordScored[wordIndex] = true;  // Mark as scored so it shows GREEN/RED
                         wordCorrect[wordIndex]  = result;  // Store result for RF to use later
                         isProcessingWord        = false;
                         
@@ -1621,13 +1606,27 @@ public class StudentDetail extends AppCompatActivity {
                     isCurrentlyRecording = false;
                     resetReadingButton(readingModal);
                     
-                    // Show "Analyzing pronunciation..." indicator
+                    // Show "Calculating results..." toast
+                    showImportantToast("⏳ Calculating results...");
+                    
+                    // Disable and darken buttons during analysis
                     Button showResultsButton = readingModal.findViewById(R.id.showResultsButton);
+                    Button microphoneButton = readingModal.findViewById(R.id.microphoneButton);
+                    
                     if (showResultsButton != null) {
-                        showResultsButton.setText("Analyzing pronunciation...");
+                        showResultsButton.setText("Analyzing...");
                         showResultsButton.setEnabled(false);
-                        android.util.Log.d("StudentDetail", "⏳ Waiting for RF analysis to complete...");
+                        showResultsButton.setAlpha(0.5f); // Darken button
+                        android.util.Log.d("StudentDetail", "⏳ Show Results button disabled during analysis");
                     }
+                    
+                    if (microphoneButton != null) {
+                        microphoneButton.setEnabled(false);
+                        microphoneButton.setAlpha(0.5f); // Darken button
+                        android.util.Log.d("StudentDetail", "⏳ Microphone button disabled during analysis");
+                    }
+                    
+                    android.util.Log.d("StudentDetail", "⏳ Waiting for RF analysis to complete...");
                 });
             }
             
@@ -1661,8 +1660,17 @@ public class StudentDetail extends AppCompatActivity {
                 android.util.Log.d("StudentDetail", "═══════════════════════════════════════════════════════");
                 android.util.Log.d("StudentDetail", "✅ RF ANALYSIS COMPLETE - Updating word colors");
                 android.util.Log.d("StudentDetail", String.format("   Received %d word results", wordCorrectness.size()));
+                android.util.Log.d("StudentDetail", String.format("   wordCorrect.length=%d, wordScored.length=%d, wordFinished.length=%d",
+                    wordCorrect.length, wordScored.length, wordFinished.length));
                 
                 runOnUiThread(() -> {
+                    // Update button text to show saving progress
+                    Button showResultsButton = readingModal.findViewById(R.id.showResultsButton);
+                    if (showResultsButton != null) {
+                        showResultsButton.setText("Saving...");
+                        android.util.Log.d("StudentDetail", "💾 Updating button: Saving results...");
+                    }
+                    
                     // Update word correctness based on RF results
                     int correctCount = 0;
                     int incorrectCount = 0;
@@ -1671,6 +1679,13 @@ public class StudentDetail extends AppCompatActivity {
                     
                     for (int i = 0; i < wordCorrectness.size() && i < wordCorrect.length; i++) {
                         boolean isCorrect = wordCorrectness.get(i);
+                        
+                        // Log BEFORE update for first 10 words
+                        if (i < 10) {
+                            android.util.Log.d("StudentDetail", String.format("   Word %d BEFORE: finished=%b, scored=%b, correct=%b", 
+                                i, wordFinished[i], wordScored[i], wordCorrect[i]));
+                        }
+                        
                         wordCorrect[i] = isCorrect;
                         wordScored[i] = true; // Now scored by RF
                         wordFinished[i] = true; // Ensure word is marked as finished
@@ -1681,9 +1696,9 @@ public class StudentDetail extends AppCompatActivity {
                             incorrectCount++;
                         }
                         
-                        // Log first 10 words for debugging
+                        // Log AFTER update for first 10 words
                         if (i < 10) {
-                            android.util.Log.d("StudentDetail", String.format("   Word %d: %s (finished=%b, scored=%b, correct=%b)", 
+                            android.util.Log.d("StudentDetail", String.format("   Word %d AFTER: %s (finished=%b, scored=%b, correct=%b)", 
                                 i, isCorrect ? "✅ CORRECT" : "❌ INCORRECT", wordFinished[i], wordScored[i], wordCorrect[i]));
                         }
                     }
@@ -1695,6 +1710,8 @@ public class StudentDetail extends AppCompatActivity {
                     
                     android.util.Log.d("StudentDetail", String.format("   RF Results: %d correct, %d incorrect (%.1f%% accuracy)",
                         correctCount, incorrectCount, currentAccuracy * 100));
+                    android.util.Log.d("StudentDetail", String.format("   Expected from results modal: ~%d incorrect", 
+                        currentTotalWords - correctCount));
                     
                     // Redraw passage with accurate red/green colors
                     android.util.Log.d("StudentDetail", "🎨 Calling redrawHighlights with passageContentView...");
@@ -1709,24 +1726,26 @@ public class StudentDetail extends AppCompatActivity {
                     android.util.Log.d("StudentDetail", "✅ Passage updated with accurate RF colors");
                     android.util.Log.d("StudentDetail", "═══════════════════════════════════════════════════════");
                     
-                    // Update button to show "Saving results..."
-                    Button showResultsButton = readingModal.findViewById(R.id.showResultsButton);
-                    if (showResultsButton != null) {
-                        showResultsButton.setText("Saving results...");
-                        showResultsButton.setEnabled(false);
-                        android.util.Log.d("StudentDetail", "⏳ Waiting for session to be saved...");
+                    // Safety timeout: If onSessionSaved doesn't fire within 3 seconds, re-enable buttons
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                        Button timeoutShowResultsButton = readingModal.findViewById(R.id.showResultsButton);
+                        Button timeoutMicrophoneButton = readingModal.findViewById(R.id.microphoneButton);
                         
-                        // OFFLINE FALLBACK: If onSessionSaved doesn't fire within 2 seconds,
-                        // show results anyway with the data we have
-                        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                            if (!showResultsButton.isEnabled()) {
-                                android.util.Log.w("StudentDetail", "⚠️ Session save timeout - showing results with local data");
-                                showResultsButton.setText("View Results");
-                                showResultsButton.setEnabled(true);
-                                showResultsButton.performClick();
+                        if (timeoutShowResultsButton != null && !timeoutShowResultsButton.isEnabled()) {
+                            android.util.Log.w("StudentDetail", "⚠️ Session save timeout - re-enabling buttons with local data");
+                            timeoutShowResultsButton.setText("View Results");
+                            timeoutShowResultsButton.setEnabled(true);
+                            timeoutShowResultsButton.setAlpha(1.0f);
+                            
+                            if (timeoutMicrophoneButton != null) {
+                                timeoutMicrophoneButton.setEnabled(true);
+                                timeoutMicrophoneButton.setAlpha(1.0f);
                             }
-                        }, 2000);
-                    }
+                            
+                            showImportantToast("⚠️ Showing results (offline mode)");
+                            timeoutShowResultsButton.performClick();
+                        }
+                    }, 3000);
                 });
             }
             
@@ -1766,15 +1785,39 @@ public class StudentDetail extends AppCompatActivity {
                     android.util.Log.d("StudentDetail", String.format("   finalWpm: %.0f", finalWpm));
                     android.util.Log.d("StudentDetail", String.format("   finalReadingTimeMs: %d ms", finalReadingTimeMs));
                     android.util.Log.d("StudentDetail", String.format("   finalWordsRead: %d", finalWordsRead));
+                    android.util.Log.d("StudentDetail", "═══════════════════════════════════════════════════════");
+                    android.util.Log.d("StudentDetail", "📊 RESULTS MODAL ↔ PROGRESS REPORTS SYNC:");
+                    android.util.Log.d("StudentDetail", String.format("   currentCorrectWords: %d (from database)", currentCorrectWords));
+                    android.util.Log.d("StudentDetail", String.format("   currentIncorrectWords: %d (from database)", currentIncorrectWords));
+                    android.util.Log.d("StudentDetail", "   ✅ These values will be shown in Results Modal");
+                    android.util.Log.d("StudentDetail", "   ✅ These values match what's in Progress Reports");
+                    android.util.Log.d("StudentDetail", "   ✅ Both use the same database session data");
+                    android.util.Log.d("StudentDetail", "═══════════════════════════════════════════════════════");
                     
-                    // Re-enable the button and auto-show results with accurate DB data
+                    // Re-enable and restore buttons
                     Button showResultsButton = readingModal.findViewById(R.id.showResultsButton);
+                    Button microphoneButton = readingModal.findViewById(R.id.microphoneButton);
+                    
                     if (showResultsButton != null) {
                         showResultsButton.setText("View Results");
                         showResultsButton.setEnabled(true);
-                        android.util.Log.d("StudentDetail", "📊 Auto-showing results modal with accurate database data");
-                        // Auto-click now that we have accurate DB data
-                        // The modal will use the updated finalReadingAccuracy, finalWpm, etc.
+                        showResultsButton.setAlpha(1.0f); // Restore full opacity
+                        android.util.Log.d("StudentDetail", "✅ Show Results button re-enabled");
+                    }
+                    
+                    if (microphoneButton != null) {
+                        microphoneButton.setEnabled(true);
+                        microphoneButton.setAlpha(1.0f); // Restore full opacity
+                        android.util.Log.d("StudentDetail", "✅ Microphone button re-enabled");
+                    }
+                    
+                    // Show completion toast
+                    showImportantToast("✅ Results ready!");
+                    
+                    android.util.Log.d("StudentDetail", "📊 Auto-showing results modal with accurate database data");
+                    
+                    // Auto-show results modal
+                    if (showResultsButton != null) {
                         showResultsButton.performClick();
                     }
                 });
@@ -1784,6 +1827,20 @@ public class StudentDetail extends AppCompatActivity {
             public void onError(String error) {
                 android.util.Log.e("StudentDetail", "❌ Vosk error: " + error);
                 runOnUiThread(() -> {
+                    // Re-enable buttons on error
+                    Button showResultsButton = readingModal.findViewById(R.id.showResultsButton);
+                    Button microphoneButton = readingModal.findViewById(R.id.microphoneButton);
+                    
+                    if (showResultsButton != null) {
+                        showResultsButton.setEnabled(true);
+                        showResultsButton.setAlpha(1.0f);
+                    }
+                    
+                    if (microphoneButton != null) {
+                        microphoneButton.setEnabled(true);
+                        microphoneButton.setAlpha(1.0f);
+                    }
+                    
                     Toast.makeText(StudentDetail.this, "❌ Error: " + error, Toast.LENGTH_LONG).show();
                     resetReadingButton(readingModal);
                     resetTimer();
@@ -1911,6 +1968,8 @@ public class StudentDetail extends AppCompatActivity {
     private void redrawHighlights(TextView textView) {
         try {
             android.util.Log.d("StudentDetail", "🎨 redrawHighlights called");
+            android.util.Log.d("StudentDetail", String.format("   wordSpans.size()=%d, wordFinished.length=%d, wordScored.length=%d, wordCorrect.length=%d",
+                wordSpans.size(), wordFinished.length, wordScored.length, wordCorrect.length));
             
             // Get or create spannable
             CharSequence currentText = textView.getText();
@@ -1943,23 +2002,34 @@ public class StudentDetail extends AppCompatActivity {
                 WordSpan ws = wordSpans.get(i);
                 
                 int color;
+                String colorName;
                 // If word is being processed, show subtle yellow instead of final color
                 if (isProcessingWord && i == currentWordIndex) {
                     color = android.graphics.Color.parseColor("#FFF9C4"); // SUBTLE YELLOW = processing
+                    colorName = "SUBTLE_YELLOW";
                     yellowCount++;
                 } else if (wordScored[i]) {
                     // Only show final color if word has been scored by Random Forest
                     if (wordCorrect[i]) {
                         color = android.graphics.Color.parseColor("#66BB6A"); // GREEN = correct
+                        colorName = "GREEN";
                         greenCount++;
                     } else {
                         color = android.graphics.Color.parseColor("#EF5350"); // RED = incorrect
+                        colorName = "RED";
                         redCount++;
                     }
                 } else {
                     // Word is finished but not yet scored by Random Forest - show YELLOW (needs review)
                     color = android.graphics.Color.parseColor("#FFF59D"); // YELLOW = needs review
+                    colorName = "YELLOW";
                     yellowCount++;
+                }
+                
+                // Log first 10 and last 5 words for debugging
+                if (i < 10 || i >= wordSpans.size() - 5) {
+                    android.util.Log.d("StudentDetail", String.format("   Word %d: finished=%b, scored=%b, correct=%b → %s",
+                        i, wordFinished[i], wordScored[i], wordCorrect[i], colorName));
                 }
                 
                 spannable.setSpan(
@@ -2231,10 +2301,10 @@ public class StudentDetail extends AppCompatActivity {
     }
     
     private void startContinuousFlowReading(String passageTitle, Dialog readingModal, ProgressBar progressBar, TextView progressText) {
-            android.util.Log.d("StudentDetail", "=== REDIRECTING TO VOSK + MFCC ===");
+            android.util.Log.d("StudentDetail", "=== USING VOSK + MFCC ===");
             android.util.Log.d("StudentDetail", "Passage: " + passageTitle);
 
-            // Redirect to Vosk implementation
+            // Use Vosk implementation
             TextView timerDisplay = readingModal.findViewById(R.id.timerDisplay);
             startContinuousReadingWithTimer(passageTitle, readingModal, progressBar, progressText, timerDisplay);
         }
@@ -2258,7 +2328,7 @@ public class StudentDetail extends AppCompatActivity {
         startContinuousReadingWithTimer(passageTitle, readingModal, progressBar, progressText, timerDisplay);
     }
     
-    // Fallback methods - all redirect to Vosk + MFCC implementation
+    // Fallback methods - all use Vosk + MFCC implementation
     private void startRealTimeWordTracking(String passageTitle, Dialog readingModal, ProgressBar progressBar, TextView progressText) {
         android.util.Log.d("StudentDetail", "Using Vosk + MFCC");
         TextView timerDisplay = readingModal.findViewById(R.id.timerDisplay);
@@ -2594,12 +2664,14 @@ public class StudentDetail extends AppCompatActivity {
             
             // Schedule next update if still running (continue indefinitely)
             if (timerRunning) {
-                timerHandler.postDelayed(new Runnable() {
+                // Create and store the runnable so it can be properly removed
+                timerRunnable = new Runnable() {
                     @Override
                     public void run() {
                         updateTimerDisplay();
                     }
-                }, 1000);
+                };
+                timerHandler.postDelayed(timerRunnable, 1000);
                 android.util.Log.v("StudentDetail", "⏱️ Next Phil-IRI timer update scheduled");
             } else {
                 android.util.Log.d("StudentDetail", "⏱️ Phil-IRI timer stopped - time expired or manually stopped");
@@ -2609,12 +2681,14 @@ public class StudentDetail extends AppCompatActivity {
             android.util.Log.e("StudentDetail", "⏱️ Phil-IRI timer update error: " + e.getMessage(), e);
             // Try again if still running and under time limit
             if (timerRunning && !philIriTimeExpired) {
-                timerHandler.postDelayed(new Runnable() {
+                // Create and store the runnable so it can be properly removed
+                timerRunnable = new Runnable() {
                     @Override
                     public void run() {
                         updateTimerDisplay();
                     }
-                }, 1000);
+                };
+                timerHandler.postDelayed(timerRunnable, 1000);
             }
         }
     }

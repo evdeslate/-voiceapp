@@ -27,9 +27,9 @@ android {
             }
         }
         
-        // Disable asset compression for large model files
+        // Disable asset compression for large model files (Vosk)
         aaptOptions {
-            noCompress("tflite", "mdl", "fst", "conf", "dubm", "ie", "mat", "stats")
+            noCompress("tflite", "mdl", "fst", "conf", "dubm", "ie", "mat", "stats", "bin")
         }
     }
 
@@ -84,10 +84,10 @@ dependencies {
     implementation("org.tensorflow:tensorflow-lite:2.8.0")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.2")
     
-    // ONNX Runtime for Android - for Random Forest models
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.16.3")
+    // ONNX Runtime for Android - for Random Forest models (upgraded to support IR version 10)
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.17.0")
     
-    // Vosk speech recognition - offline, lightweight
+    // Vosk speech recognition - offline, lightweight (for real-time highlighting)
     implementation("com.alphacephei:vosk-android:0.3.47")
     
     // Text processing for BERT NLP

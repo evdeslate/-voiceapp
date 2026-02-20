@@ -19,7 +19,7 @@ import java.util.Map;
  */
 public class ONNXRandomForestScorer {
     private static final String TAG = "ONNXRFScorer";
-    private static final String MODEL_PATH = "rf_pipeline.onnx"; // Using pipeline model with built-in scaler
+    private static final String MODEL_PATH = "rf_model.onnx"; // Using new RF model
     
     public static final int INCORRECT_PRONUNCIATION = 0;
     public static final int CORRECT_PRONUNCIATION = 1;
@@ -87,8 +87,8 @@ public class ONNXRandomForestScorer {
             FloatBuffer buffer = FloatBuffer.wrap(mfccStats);
             OnnxTensor inputTensor = OnnxTensor.createTensor(env, buffer, shape);
             
-            // Run inference
-            Map<String, OnnxTensor> inputs = Collections.singletonMap("input", inputTensor);
+            // Run inference - model expects input name "mfcc_input"
+            Map<String, OnnxTensor> inputs = Collections.singletonMap("mfcc_input", inputTensor);
             OrtSession.Result result = session.run(inputs);
             
             // Get output - handle both probability and label outputs

@@ -15,36 +15,46 @@
         android:roundIcon="@drawable/logocircle"
         android:supportsRtl="true"
         android:theme="@style/Theme.SPEAK"
-        android:networkSecurityConfig="@xml/network_security_config">
+        android:networkSecurityConfig="@xml/network_security_config"
+        tools:ignore="UnusedAttribute">
         
         <activity
             android:name=".PassageManagementActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:configChanges="fontScale|uiMode" />
         <activity
             android:name=".ProgressReportsActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:configChanges="fontScale|uiMode" />
         <activity
             android:name=".StudentManagementActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:configChanges="fontScale|uiMode" />
         <activity
             android:name=".StudentDetail"
-            android:exported="false" />
+            android:exported="false"
+            android:configChanges="fontScale|uiMode" />
         <activity
             android:name=".TeacherDashboard"
-            android:exported="false" />
+            android:exported="false"
+            android:configChanges="fontScale|uiMode" />
         <activity
             android:name=".SignUpActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:configChanges="fontScale|uiMode" />
         <activity
             android:name=".LoginPage"
-            android:exported="false" />
+            android:exported="false"
+            android:configChanges="fontScale|uiMode" />
         <activity
             android:name=".MainActivity"
             android:exported="false"
-            android:windowSoftInputMode="adjustPan" />
+            android:windowSoftInputMode="adjustPan"
+            android:configChanges="fontScale|uiMode" />
         <activity
             android:name=".WelcomePage"
-            android:exported="true">
+            android:exported="true"
+            android:configChanges="fontScale|uiMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

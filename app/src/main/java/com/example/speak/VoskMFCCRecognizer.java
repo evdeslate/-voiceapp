@@ -1363,8 +1363,9 @@ public class VoskMFCCRecognizer {
         final float finalPronunciationScore = avgPronunciation;
         final float finalReadingTimeSec = readingTimeSec;
         final int finalTotalWordsRead = totalWordsRead;
-        final int finalCorrectWords = correctWordsCount;
-        final int finalIncorrectWords = incorrectWordsCount;
+        // Use array to allow RF analysis to update these values
+        final int[] finalCorrectWords = {correctWordsCount};  // Will be updated by RF analysis
+        final int[] finalIncorrectWords = {incorrectWordsCount};  // Will be updated by RF analysis
         
         // Calculate WPM immediately
         float wpm = 0.0f;
@@ -1376,7 +1377,7 @@ public class VoskMFCCRecognizer {
         // Calculate error rate immediately
         float errorRate = 0.0f;
         if (finalTotalWordsRead > 0) {
-            errorRate = (float) finalIncorrectWords / finalTotalWordsRead;
+            errorRate = (float) finalIncorrectWords[0] / finalTotalWordsRead;
         }
         final float finalErrorRate = errorRate;
         
@@ -1547,7 +1548,7 @@ public class VoskMFCCRecognizer {
                         Log.d(TAG, "✅ AUDIO-ONLY ANALYSIS COMPLETE!");
                         Log.d(TAG, String.format("  Time taken: %dms (%.0fms per word)", rfTime, (float)rfTime / wordsCount));
                         Log.d(TAG, String.format("  Match-based: %.1f%% (%d/%d correct)", 
-                            finalPronunciationScore * 100, finalCorrectWords, finalTotalWordsRead));
+                            finalPronunciationScore * 100, finalCorrectWords[0], finalTotalWordsRead));
                         Log.d(TAG, String.format("  Audio-based: %.1f%% (%d/%d correct)", 
                             rfScore * 100, rfCorrectCount, wordsCount));
                         Log.d(TAG, String.format("  Difference: %+.1f%%", (rfScore - finalPronunciationScore) * 100));
@@ -1561,6 +1562,7 @@ public class VoskMFCCRecognizer {
                         int textOnlyCorrect = 0;
                         int audioOnlyCorrect = 0;
                         int bothCorrect = 0;
+                        int overrideCount = 0;
                         
                         for (int i = 0; i < wordsCount; i++) {
                             boolean textCorrect = i < matchBasedCorrectness.size() ? matchBasedCorrectness.get(i) : false;
@@ -1569,6 +1571,25 @@ public class VoskMFCCRecognizer {
                             // TRUST RF MODEL: Use RF result as primary decision
                             // RF analyzes actual pronunciation from audio, which is more reliable
                             boolean hybridCorrect = audioCorrect;
+                            
+                            // APPLY MISPRONUNCIATION OVERRIDE: Check for hardcoded Filipino mispronunciations
+                            // This ensures known mispronunciations (f→p, v→b, th→d) are caught
+                            if (i < allRecognizedWords.size() && i < allExpectedWords.size()) {
+                                String recognizedWord = allRecognizedWords.get(i);
+                                String expectedWord = allExpectedWords.get(i);
+                                
+                                // Apply MispronunciationOverride to RF result
+                                boolean beforeOverride = hybridCorrect;
+                                hybridCorrect = MispronunciationOverride.evaluate(recognizedWord, expectedWord, hybridCorrect);
+                                
+                                if (beforeOverride != hybridCorrect) {
+                                    overrideCount++;
+                                    Log.d(TAG, String.format("  Override applied to word %d '%s': %s → %s", 
+                                        i, expectedWord, beforeOverride ? "CORRECT" : "INCORRECT", 
+                                        hybridCorrect ? "CORRECT" : "INCORRECT"));
+                                }
+                            }
+                            
                             hybridCorrectness.add(hybridCorrect);
                             
                             if (hybridCorrect) {
@@ -1582,14 +1603,21 @@ public class VoskMFCCRecognizer {
                         float hybridScore = wordsCount > 0 ? (float) hybridCorrectCount / wordsCount : 0.5f;
                         rfPronunciationScore = hybridScore;
                         
+                        // UPDATE: Use RF-based counts for session saving
+                        finalCorrectWords[0] = hybridCorrectCount;
+                        finalIncorrectWords[0] = wordsCount - hybridCorrectCount;
+                        
                         Log.d(TAG, "═══════════════════════════════════════════════════════");
-                        Log.d(TAG, "🔀 HYBRID ANALYSIS (RF Model Primary):");
+                        Log.d(TAG, "🔀 HYBRID ANALYSIS (RF Model Primary + Mispronunciation Override):");
                         Log.d(TAG, String.format("  Final score: %.1f%% (%d/%d correct)", 
                             hybridScore * 100, hybridCorrectCount, wordsCount));
                         Log.d(TAG, String.format("  Both methods agree correct: %d", bothCorrect));
                         Log.d(TAG, String.format("  Text correct, RF incorrect: %d", textOnlyCorrect));
                         Log.d(TAG, String.format("  Text incorrect, RF correct: %d", audioOnlyCorrect));
-                        Log.d(TAG, "  Strategy: Trust RF model (analyzes actual pronunciation)");
+                        Log.d(TAG, String.format("  Mispronunciation overrides applied: %d", overrideCount));
+                        Log.d(TAG, "  Strategy: Trust RF model + apply Filipino mispronunciation rules");
+                        Log.d(TAG, String.format("  📊 Updated session counts: %d correct, %d incorrect", 
+                            finalCorrectWords[0], finalIncorrectWords[0]));
                         Log.d(TAG, "═══════════════════════════════════════════════════════");
                         
                         // Notify callback with HYBRID results
@@ -1740,7 +1768,7 @@ public class VoskMFCCRecognizer {
                 session.setPronunciation(finalRFPronunciation);  // Use Random Forest score
                 session.setComprehension(finalComprehension);
                 session.setWpm(finalWpm);
-                session.setCorrectWords(finalCorrectWords);
+                session.setCorrectWords(finalCorrectWords[0]);  // Use RF-based count
                 session.setTotalWords(finalTotalWordsRead);
                 session.setReadingLevel(updatedLevel.level);
                 session.setReadingLevelName(updatedLevel.levelName);
@@ -1749,8 +1777,8 @@ public class VoskMFCCRecognizer {
                 session.setWeaknesses(updatedLevel.weaknesses);
                 session.setRecommendations(updatedLevel.recommendations);
                 
-                Log.d(TAG, String.format("💾 Session data prepared - Pronunciation: %.1f%%, Level: %s", 
-                    finalRFPronunciation * 100, updatedLevel.levelName));
+                Log.d(TAG, String.format("💾 Session data prepared - Pronunciation: %.1f%%, Correct: %d/%d, Level: %s", 
+                    finalRFPronunciation * 100, finalCorrectWords[0], finalTotalWordsRead, updatedLevel.levelName));
                 
                 Log.d(TAG, "💾 Calling ReadingSessionRepository.saveSession()...");
                 

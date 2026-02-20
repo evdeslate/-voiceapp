@@ -141,6 +141,42 @@ public class MispronunciationOverride {
             return false;
         }
         
+        // ADDITIONAL CHECK: Pattern-based detection for f→p substitution
+        // Catches cases where Vosk might normalize differently
+        if (expected.contains("f") && spoken.contains("p")) {
+            // Check if replacing 'p' with 'f' makes it match
+            String spokenWithF = spoken.replace('p', 'f');
+            if (spokenWithF.equals(expected)) {
+                android.util.Log.d(TAG, String.format(
+                    "🚫 PATTERN OVERRIDE: f→p detected in '%s' → '%s' forced INCORRECT",
+                    spoken, expected));
+                return false;
+            }
+        }
+        
+        // ADDITIONAL CHECK: Pattern-based detection for v→b substitution
+        if (expected.contains("v") && spoken.contains("b")) {
+            String spokenWithV = spoken.replace('b', 'v');
+            if (spokenWithV.equals(expected)) {
+                android.util.Log.d(TAG, String.format(
+                    "🚫 PATTERN OVERRIDE: v→b detected in '%s' → '%s' forced INCORRECT",
+                    spoken, expected));
+                return false;
+            }
+        }
+        
+        // ADDITIONAL CHECK: Pattern-based detection for th→d/t substitution
+        if (expected.contains("th")) {
+            // Check if spoken has 'd' or 't' where 'th' should be
+            String spokenWithTh = spoken.replace("d", "th").replace("t", "th");
+            if (spokenWithTh.equals(expected)) {
+                android.util.Log.d(TAG, String.format(
+                    "🚫 PATTERN OVERRIDE: th→d/t detected in '%s' → '%s' forced INCORRECT",
+                    spoken, expected));
+                return false;
+            }
+        }
+        
         // No override - trust Vosk's decision
         return voskDecision;
     }
