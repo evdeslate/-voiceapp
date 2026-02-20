@@ -555,6 +555,8 @@ public class VoskMFCCRecognizer {
                             } else {
                                 Log.w(TAG, "⚠️ Partial field exists but is empty");
                             }
+                        } else {
+                            Log.w(TAG, "⚠️ No 'partial' field in JSON");
                         }
                         
                         // If partial is empty, log the JSON structure
