@@ -455,8 +455,7 @@ public class VoskMFCCRecognizer {
         
         // Reset audio denoiser for new recording
         audioDenoiser.reset();
-        audioPreProcessor.reset(); // NEW: Reset audio preprocessor
-        Log.d(TAG, "🎤 Audio denoiser + preprocessor initialized");
+        audioPreProcessor.reset();
         
         // Start audio recording for MFCC analysis
         startAudioRecording();
