@@ -697,6 +697,29 @@ public class VoskMFCCRecognizer {
                             Log.e(TAG, "❌ FAILED TO EXTRACT TEXT FROM FINAL RESULT");
                             Log.e(TAG, "Full JSON: " + hypothesis);
                             Log.e(TAG, "JSON keys: " + json.keys().toString());
+                            
+                            // Check if this is a "detected audio but no words" scenario
+                            if (json.has("alternatives")) {
+                                JSONArray alternatives = json.getJSONArray("alternatives");
+                                if (alternatives.length() > 0) {
+                                    JSONObject firstAlt = alternatives.getJSONObject(0);
+                                    double confidence = firstAlt.optDouble("confidence", 0.0);
+                                    String altText = firstAlt.optString("text", "");
+                                    
+                                    if (confidence > 0 && altText.isEmpty()) {
+                                        Log.e(TAG, "⚠️⚠️⚠️ VOSK DETECTED AUDIO BUT RECOGNIZED NO WORDS");
+                                        Log.e(TAG, "   Confidence: " + confidence);
+                                        Log.e(TAG, "   This usually means:");
+                                        Log.e(TAG, "   1. Speaker is too far from microphone");
+                                        Log.e(TAG, "   2. Audio quality is too low");
+                                        Log.e(TAG, "   3. Too much background noise");
+                                        Log.e(TAG, "   4. Speaker not speaking clearly enough");
+                                        Log.e(TAG, "   5. Microphone permission issues");
+                                        Log.e(TAG, "   ");
+                                        Log.e(TAG, "   SOLUTION: Speak louder and closer to the microphone");
+                                    }
+                                }
+                            }
                         }
                         
                         // CONFIDENCE-BASED SAMPLING: Extract word timestamps if available
