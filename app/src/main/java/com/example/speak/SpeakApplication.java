@@ -90,11 +90,14 @@ public class SpeakApplication extends Application {
         
         new Thread(() -> {
             try {
+                Log.d(TAG, "=== VOSK MODEL LOADING STARTED ===");
                 Log.d(TAG, "🔄 Loading Vosk model (singleton)...");
                 long startTime = System.currentTimeMillis();
                 
                 // Check if model already extracted
                 File modelDir = new File(getFilesDir(), "vosk-model-en-us-0.22-lgraph");
+                Log.d(TAG, "Model directory path: " + modelDir.getAbsolutePath());
+                Log.d(TAG, "Model directory exists: " + modelDir.exists());
                 
                 if (!modelDir.exists() || !isModelComplete(modelDir)) {
                     Log.d(TAG, "📦 Extracting Vosk model from assets...");
@@ -105,6 +108,7 @@ public class SpeakApplication extends Application {
                     if (!isModelComplete(modelDir)) {
                         throw new Exception("Model extraction incomplete - missing required files");
                     }
+                    Log.d(TAG, "✅ Model extraction verified - all files present");
                 }
                 
                 // Verify model directory is readable
@@ -118,6 +122,16 @@ public class SpeakApplication extends Application {
                 Log.d(TAG, "📂 Model directory exists: " + modelDir.exists());
                 Log.d(TAG, "📂 Model directory readable: " + modelDir.canRead());
                 
+                // List model directory contents for debugging
+                File[] files = modelDir.listFiles();
+                if (files != null) {
+                    Log.d(TAG, "📂 Model directory contains " + files.length + " items:");
+                    for (File file : files) {
+                        Log.d(TAG, "   - " + file.getName() + (file.isDirectory() ? " (dir)" : " (file)"));
+                    }
+                }
+                
+                Log.d(TAG, "Creating Model object...");
                 voskModel = new Model(modelPath);
                 
                 // Verify model loaded successfully
@@ -125,13 +139,19 @@ public class SpeakApplication extends Application {
                     throw new Exception("Model object is null after loading");
                 }
                 
+                Log.d(TAG, "✅ Model object created successfully");
+                Log.d(TAG, "Model class: " + voskModel.getClass().getName());
+                
                 long loadTime = System.currentTimeMillis() - startTime;
                 Log.d(TAG, String.format("✅ Vosk model loaded successfully in %.1f seconds", loadTime / 1000.0));
                 
                 isVoskModelReady = true;
                 isVoskModelLoading = false;
                 
+                Log.d(TAG, "=== VOSK MODEL LOADING COMPLETE ===");
+                
             } catch (Exception e) {
+                Log.e(TAG, "=== VOSK MODEL LOADING FAILED ===");
                 Log.e(TAG, "❌ Failed to load Vosk model", e);
                 e.printStackTrace();
                 voskModelError = e.getMessage();
@@ -143,6 +163,18 @@ public class SpeakApplication extends Application {
                 Log.e(TAG, "Error message: " + e.getMessage());
                 if (e.getCause() != null) {
                     Log.e(TAG, "Cause: " + e.getCause().getMessage());
+                    Log.e(TAG, "Cause type: " + e.getCause().getClass().getName());
+                }
+                
+                // Check if model files exist
+                File modelDir = new File(getFilesDir(), "vosk-model-en-us-0.22-lgraph");
+                Log.e(TAG, "Model directory exists: " + modelDir.exists());
+                if (modelDir.exists()) {
+                    Log.e(TAG, "Model directory readable: " + modelDir.canRead());
+                    File[] files = modelDir.listFiles();
+                    if (files != null) {
+                        Log.e(TAG, "Model directory contains " + files.length + " items");
+                    }
                 }
             }
         }).start();

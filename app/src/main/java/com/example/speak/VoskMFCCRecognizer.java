@@ -1,10 +1,13 @@
 package com.example.speak;
 
+import android.Manifest;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.util.Log;
+import androidx.core.content.ContextCompat;
 
 import org.json.JSONObject;
 import org.json.JSONArray;
@@ -377,7 +380,18 @@ public class VoskMFCCRecognizer {
      */
     public void startRecognition(String[] expectedWords, String passageText, String studentId, 
                                  String studentName, String passageTitle, RecognitionCallback callback) {
+        Log.d(TAG, "=== START RECOGNITION CALLED ===");
+        Log.d(TAG, "Expected words count: " + (expectedWords != null ? expectedWords.length : 0));
+        Log.d(TAG, "Passage text length: " + (passageText != null ? passageText.length() : 0));
+        
         // Check if model is ready
+        Log.d(TAG, "Checking model status...");
+        Log.d(TAG, "  voskModel: " + (voskModel != null ? "NOT NULL" : "NULL"));
+        Log.d(TAG, "  SpeakApplication.voskModel: " + (SpeakApplication.voskModel != null ? "NOT NULL" : "NULL"));
+        Log.d(TAG, "  SpeakApplication.isVoskModelLoading: " + SpeakApplication.isVoskModelLoading);
+        Log.d(TAG, "  SpeakApplication.isVoskModelReady: " + SpeakApplication.isVoskModelReady);
+        Log.d(TAG, "  SpeakApplication.voskModelError: " + SpeakApplication.voskModelError);
+        
         if (voskModel == null) {
             String errorMsg = "Vosk model not loaded";
             
@@ -397,6 +411,8 @@ public class VoskMFCCRecognizer {
             callback.onError(errorMsg);
             return;
         }
+        
+        Log.d(TAG, "✅ Model check passed, voskModel is available");
         
         if (isRecognizing) {
             Log.w(TAG, "Already recognizing");
@@ -433,68 +449,67 @@ public class VoskMFCCRecognizer {
         
         try {
             // ═══════════════════════════════════════════════════════════════════════════
-            // HYBRID SOLUTION: Grammar-assisted + Free-form verification
+            // FREE-FORM RECOGNITION: Let Vosk output what child actually says
             // ═══════════════════════════════════════════════════════════════════════════
             // 
-            // PROBLEM: Pure free-form recognition is too slow/unreliable
-            // SOLUTION: Use grammar for speed, but verify with text matching
+            // SOLUTION: Use free-form recognition so RF model gets accurate audio data
             //
             // HOW IT WORKS:
-            // 1. Grammar helps Vosk recognize words quickly (good UX)
-            // 2. Text matching detects mispronunciations (good accuracy)
-            // 3. RF model provides final pronunciation scoring
+            // 1. Vosk outputs what child actually says (e.g., "pader" for "father")
+            // 2. Text matching compares "pader" vs "father" → INCORRECT ✅
+            // 3. RF model analyzes audio → confirms mispronunciation ✅
             //
             // EXAMPLE:
-            // - User says "feather" (expected: "father")
-            // - Grammar forces Vosk to output "father" (fast recognition)
-            // - Text matching: "father" == "father" ✅ (can't catch this)
-            // - RF model: Analyzes audio, detects mispronunciation ✅ (catches it!)
+            // - User says "pader" (mispronounced)
+            // - Vosk outputs "pader" (what was actually said)
+            // - Text matching: "pader" != "father" ❌ CORRECT!
+            // - RF model: Analyzes audio, confirms mispronunciation ✅
             //
-            // TRADE-OFF:
-            // - Text matching won't catch mispronunciations
-            // - But RF model will catch them in final analysis
-            // - Users get fast highlighting + accurate final scores
+            // BENEFIT:
+            // - Both text matching AND RF model can catch mispronunciations
+            // - More accurate assessment of pronunciation
+            // - Catches Filipino L1 interference (f→p, v→b, th→d)
             // ═══════════════════════════════════════════════════════════════════════════
             
-            // Build grammar from expected words for fast recognition
-            StringBuilder grammar = new StringBuilder("[");
-            for (int i = 0; i < expectedWords.length; i++) {
-                grammar.append("\"").append(expectedWords[i].toLowerCase()).append("\"");
-                if (i < expectedWords.length - 1) {
-                    grammar.append(", ");
-                }
-            }
-            grammar.append("]");
-            
-            Log.d(TAG, "✅ Using HYBRID approach: Grammar + RF model");
-            Log.d(TAG, "   Grammar: Fast word recognition for UI");
-            Log.d(TAG, "   RF Model: Accurate pronunciation scoring");
+            Log.d(TAG, "✅ Using FREE-FORM recognition for accurate mispronunciation detection");
+            Log.d(TAG, "   Vosk: Outputs what child actually says");
+            Log.d(TAG, "   Text matching: Detects mispronunciations");
+            Log.d(TAG, "   RF Model: Confirms pronunciation accuracy");
             
             // Double-check model is still accessible
             if (voskModel == null) {
                 throw new IOException("Model became null before creating recognizer. Please restart the app.");
             }
             
-            // Create grammar-based Vosk recognizer for fast recognition
+            // Create free-form Vosk recognizer (no grammar constraints)
             Log.d(TAG, "Creating Vosk recognizer with sample rate: " + SAMPLE_RATE);
             Log.d(TAG, "Model status: " + (voskModel != null ? "Available" : "NULL"));
+            Log.d(TAG, "Model class: " + (voskModel != null ? voskModel.getClass().getName() : "N/A"));
             
             Recognizer recognizer = null;
             try {
-                // Use grammar for fast, reliable recognition
-                recognizer = new Recognizer(voskModel, SAMPLE_RATE, grammar.toString());
+                Log.d(TAG, "Attempting to create Recognizer object...");
+                
+                // Use free-form recognition to capture actual pronunciation
+                recognizer = new Recognizer(voskModel, SAMPLE_RATE);
+                
+                Log.d(TAG, "✅ Recognizer object created successfully");
                 
                 // PERFORMANCE OPTIMIZATION: Enable faster partial results
                 recognizer.setMaxAlternatives(1); // Only need best match (faster)
                 recognizer.setWords(true); // Enable word-level timestamps
                 
-                Log.d(TAG, "✅ Performance optimizations enabled:");
-                Log.d(TAG, "   - Grammar-based recognition (fast)");
+                Log.d(TAG, "✅ Free-form recognizer configured successfully:");
+                Log.d(TAG, "   - Free-form recognition (captures actual pronunciation)");
                 Log.d(TAG, "   - Max alternatives: 1");
                 Log.d(TAG, "   - Word timestamps: enabled");
                 
             } catch (Exception e) {
                 Log.e(TAG, "❌ Recognizer creation failed: " + e.getMessage(), e);
+                Log.e(TAG, "Exception type: " + e.getClass().getName());
+                if (e.getCause() != null) {
+                    Log.e(TAG, "Cause: " + e.getCause().getMessage());
+                }
                 throw new IOException("Failed to create recognizer. The Vosk model may not be fully loaded. " +
                     "Please wait a moment and try again, or restart the app if the problem persists.", e);
             }
@@ -503,7 +518,7 @@ public class VoskMFCCRecognizer {
                 throw new IOException("Recognizer creation returned null. Model may be corrupted.");
             }
             
-            Log.d(TAG, "✅ Hybrid recognizer created successfully");
+            Log.d(TAG, "✅ Free-form recognizer created successfully");
             
             // Create speech service
             speechService = new SpeechService(recognizer, SAMPLE_RATE);
@@ -779,6 +794,13 @@ public class VoskMFCCRecognizer {
         try {
             Log.d(TAG, "Starting audio recording for MFCC analysis...");
             
+            // Check for RECORD_AUDIO permission
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) 
+                    != PackageManager.PERMISSION_GRANTED) {
+                Log.e(TAG, "RECORD_AUDIO permission not granted");
+                return;
+            }
+            
             audioRecord = new AudioRecord(
                 MediaRecorder.AudioSource.VOICE_RECOGNITION, // Optimized for speech recognition
                 SAMPLE_RATE,
@@ -1022,9 +1044,21 @@ public class VoskMFCCRecognizer {
                 allRecognizedWords.add(recognizedWord);
                 allExpectedWords.add(expectedWord);
                 
-                Log.d(TAG, String.format("Word %d: '%s' vs '%s' - match-based: %s (%.0f%%)",
-                    currentWordIndex, recognizedWord, expectedWord,
-                    isCorrect ? "✅" : "❌", pronunciationScore * 100));
+                // ═══════════════════════════════════════════════════════════════
+                // 🎤 PRONUNCIATION LOG - What the user actually said
+                // ═══════════════════════════════════════════════════════════════
+                Log.d(TAG, "═══════════════════════════════════════════════════════════════");
+                Log.d(TAG, String.format("🎤 WORD #%d PRONUNCIATION:", currentWordIndex + 1));
+                Log.d(TAG, String.format("   👂 User said:     '%s'", recognizedWord));
+                Log.d(TAG, String.format("   📖 Expected word: '%s'", expectedWord));
+                Log.d(TAG, String.format("   🎯 Match quality: %.0f%% (%s)", bestMatchScore * 100, 
+                    bestMatchScore >= 0.98f ? "perfect" :
+                    bestMatchScore >= 0.90f ? "excellent" :
+                    bestMatchScore >= 0.80f ? "good" : 
+                    bestMatchScore >= 0.70f ? "acceptable" : "weak"));
+                Log.d(TAG, String.format("   ✅ Result:        %s (%.0f%% score)", 
+                    isCorrect ? "CORRECT ✅" : "INCORRECT ❌", pronunciationScore * 100));
+                Log.d(TAG, "═══════════════════════════════════════════════════════════════");
                 
                 // Track correct/incorrect (will be updated by RF if available)
                 if (isCorrect) {
@@ -1032,15 +1066,6 @@ public class VoskMFCCRecognizer {
                 } else {
                     incorrectWordsCount++;
                 }
-                
-                String matchType = bestMatchScore >= 0.98f ? "perfect" :
-                                  bestMatchScore >= 0.90f ? "excellent" :
-                                  bestMatchScore >= 0.80f ? "good" : 
-                                  bestMatchScore >= 0.70f ? "acceptable" : "weak";
-                
-                Log.d(TAG, String.format("Word %d: '%s' vs '%s' - %s (%s match %.0f%%, instant score: %.0f%%)",
-                    currentWordIndex, recognizedWord, expectedWord,
-                    isCorrect ? "✅" : "❌", matchType, bestMatchScore * 100, pronunciationScore * 100));
                 
                 if (callback != null) {
                     callback.onWordRecognized(recognizedWord, expectedWord, currentWordIndex,
