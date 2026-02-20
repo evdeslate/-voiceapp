@@ -184,7 +184,20 @@ public class VoskMFCCRecognizer {
     public VoskMFCCRecognizer(Context context) {
         this.context = context;
         this.mfccExtractor = new MFCCExtractor(SAMPLE_RATE);
-        this.onnxRandomForestScorer = new ONNXRandomForestScorer(context); // ONNX for pronunciation
+        
+        // Initialize ONNX Random Forest scorer (may fail if model incompatible)
+        try {
+            this.onnxRandomForestScorer = new ONNXRandomForestScorer(context);
+            if (this.onnxRandomForestScorer.isReady()) {
+                Log.d(TAG, "✅ ONNX Random Forest scorer ready");
+            } else {
+                Log.w(TAG, "⚠️  ONNX Random Forest scorer not ready - will use fallback");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "❌ Failed to initialize ONNX scorer: " + e.getMessage());
+            this.onnxRandomForestScorer = null;
+        }
+        
         this.audioDenoiser = new AudioDenoiser(); // Initialize denoiser
         this.audioPreProcessor = new AudioPreProcessor(SAMPLE_RATE); // NEW: Initialize audio preprocessor
         this.textAnalyzer = new DistilBERTTextAnalyzer(context); // Initialize DistilBERT (async)
