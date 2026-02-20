@@ -764,6 +764,11 @@ public class VoskMFCCRecognizer {
                             Log.d(TAG, String.format("Already processed %d words from intermediate results", maxWordIndexReached));
                         } else if (text.isEmpty()) {
                             Log.e(TAG, "❌ No text extracted and no intermediate results - nothing to process!");
+                            
+                            // Notify user about the issue
+                            if (callback != null) {
+                                callback.onError("Speech detected but no words recognized. Please speak louder and closer to the microphone.");
+                            }
                         }
                         
                         // Calculate final scores
