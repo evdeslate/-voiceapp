@@ -1583,11 +1583,22 @@ public class VoskMFCCRecognizer {
                                 short[] wordAudio = new short[segmentLength];
                                 System.arraycopy(allAudio, startSample, wordAudio, 0, segmentLength);
                                 
-                                // Run ONNX Random Forest analysis
-                                ONNXRandomForestScorer.PronunciationResult result = 
-                                    onnxRandomForestScorer.scorePronunciation(wordAudio, expectedWord);
+                                // Run ONNX Random Forest analysis (if available)
+                                boolean isCorrect;
+                                float confidence;
                                 
-                                boolean isCorrect = result.isCorrect();
+                                if (onnxRandomForestScorer != null && onnxRandomForestScorer.isReady()) {
+                                    ONNXRandomForestScorer.PronunciationResult result = 
+                                        onnxRandomForestScorer.scorePronunciation(wordAudio, expectedWord);
+                                    
+                                    isCorrect = result.isCorrect();
+                                    confidence = result.getConfidence();
+                                } else {
+                                    // Fallback to match-based correctness if ONNX not available
+                                    isCorrect = i < matchBasedCorrectness.size() ? matchBasedCorrectness.get(i) : false;
+                                    confidence = 0.7f; // Default confidence for fallback
+                                }
+                                
                                 rfWordCorrectness.add(isCorrect);
                                 
                                 if (isCorrect) {
