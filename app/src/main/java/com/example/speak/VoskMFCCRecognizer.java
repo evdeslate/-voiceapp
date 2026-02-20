@@ -1551,7 +1551,7 @@ public class VoskMFCCRecognizer {
                                 
                                 if (i < 5 || i >= wordsCount - 5) {
                                     Log.d(TAG, String.format("  Word %d '%s': %s (%.0f%% confidence)",
-                                        i, expectedWord, isCorrect ? "✅" : "❌", result.getConfidence() * 100));
+                                        i, expectedWord, isCorrect ? "✅" : "❌", confidence * 100));
                                 }
                                 
                             } catch (Exception e) {
