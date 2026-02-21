@@ -99,6 +99,10 @@ dependencies {
     // Security - Encrypted SharedPreferences
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     
+    // TarsosDSP for MFCC extraction (pure Java, Android-compatible)
+    // Using local JAR from libs/ for stability
+    implementation(files("libs/TarsosDSP-latest.jar"))
+    
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
