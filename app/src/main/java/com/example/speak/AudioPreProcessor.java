@@ -25,6 +25,11 @@ public class AudioPreProcessor {
 
     private static final String TAG = "AudioPreProcessor";
 
+    // ── RMS Normalization ─────────────────────────────────────────────────────
+    // Target RMS level for normalization (matches training data preprocessing)
+    // This ensures consistent signal intensity across all recordings
+    private static final float TARGET_RMS = 0.1f;
+    
     // ── Noise gate ────────────────────────────────────────────────────────────
     // RMS energy below this threshold = silence (background noise)
     // Tune: 0.01f = sensitive (quiet room), 0.03f = aggressive (loud classroom)
@@ -116,6 +121,85 @@ public class AudioPreProcessor {
             out.putShort(val);
         }
         return out.array();
+    }
+
+    /**
+     * Apply RMS normalization to audio samples
+     * Normalizes the signal to a target RMS level for consistent intensity
+     * 
+     * This is CRITICAL for matching training data preprocessing:
+     * - Training data was RMS-normalized to TARGET_RMS
+     * - Production audio must use the same normalization
+     * - Without this, MFCC features will have different scales
+     * 
+     * @param samples Audio samples (float array, -1.0 to 1.0)
+     * @return RMS-normalized samples
+     */
+    public float[] rmsNormalize(float[] samples) {
+        if (samples == null || samples.length == 0) {
+            return samples;
+        }
+        
+        // Calculate current RMS
+        float sumSq = 0f;
+        for (float s : samples) {
+            sumSq += s * s;
+        }
+        float currentRms = (float) Math.sqrt(sumSq / samples.length);
+        
+        // If signal is silent, don't normalize (avoid division by zero)
+        if (currentRms < 1e-6f) {
+            android.util.Log.d(TAG, "RMS normalization skipped: signal is silent");
+            return samples;
+        }
+        
+        // Calculate scaling factor to reach target RMS
+        float scale = TARGET_RMS / currentRms;
+        
+        // Apply scaling
+        float[] normalized = new float[samples.length];
+        for (int i = 0; i < samples.length; i++) {
+            normalized[i] = samples[i] * scale;
+            
+            // Clamp to [-1, 1] to prevent clipping
+            normalized[i] = Math.max(-1.0f, Math.min(1.0f, normalized[i]));
+        }
+        
+        android.util.Log.d(TAG, String.format(
+            "RMS normalization: %.6f → %.6f (scale: %.3f)", 
+            currentRms, TARGET_RMS, scale));
+        
+        return normalized;
+    }
+    
+    /**
+     * Apply RMS normalization to short audio samples
+     * Converts short to float, normalizes, then converts back
+     * 
+     * @param samples Audio samples (short array, -32768 to 32767)
+     * @return RMS-normalized samples
+     */
+    public short[] rmsNormalize(short[] samples) {
+        if (samples == null || samples.length == 0) {
+            return samples;
+        }
+        
+        // Convert short to float
+        float[] floatSamples = new float[samples.length];
+        for (int i = 0; i < samples.length; i++) {
+            floatSamples[i] = samples[i] / 32768.0f;
+        }
+        
+        // Apply RMS normalization
+        floatSamples = rmsNormalize(floatSamples);
+        
+        // Convert back to short
+        short[] normalized = new short[samples.length];
+        for (int i = 0; i < samples.length; i++) {
+            normalized[i] = (short) Math.max(-32768, Math.min(32767, floatSamples[i] * 32768.0f));
+        }
+        
+        return normalized;
     }
 
     /** Reset filter state (call when recording stops/starts) */

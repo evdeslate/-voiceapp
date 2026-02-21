@@ -63,14 +63,8 @@ public class StudentDetail extends AppCompatActivity {
     private int studentAvatar;
     private String teacherName;
     
-    // Speech Recognition - Using Vosk + MFCC (offline, lightweight)
-    private VoskMFCCRecognizer voskRecognizer; // Vosk for word detection + MFCC for pronunciation
-    private boolean isVoskModelReady = false;
-    
-    // MFCC Pronunciation Scoring
-    private MFCCExtractor mfccExtractor;
-    private MFCCPronunciationScorer mfccScorer;
-    private float lastMFCCScore = 0.0f;
+    // Speech Recognition - Using MFCC + Random Forest (offline, no speech-to-text)
+    private MFCCPronunciationRecognizer pronunciationRecognizer; // MFCC features + RF scoring
     
     // Reading session tracking
     private int currentTotalWords = 0;
@@ -126,7 +120,7 @@ public class StudentDetail extends AppCompatActivity {
     private long lastToastTime = 0;
     private static final long TOAST_INTERVAL = 1500; // 1.5 seconds between toasts
     
-    // Index of the word we are currently WAITING for Vosk to confirm
+    // Index of the word we are currently WAITING for the recognizer to confirm
     private int awaitingWordIndex = 0;
     
     // Words that timed out (mumbled/skipped) — marked incorrect automatically
@@ -185,55 +179,20 @@ public class StudentDetail extends AppCompatActivity {
 
     private void initializeSpeechRecognition() {
         try {
-            android.util.Log.d("StudentDetail", "=== INITIALIZING VOSK + MFCC SYSTEM ===");
+            android.util.Log.d("StudentDetail", "=== INITIALIZING MFCC + RANDOM FOREST SYSTEM ===");
             
-            // Initialize MFCC components
+            // Initialize pronunciation recognizer (MFCC + ONNX Random Forest)
             try {
-                mfccExtractor = new MFCCExtractor(16000);
-                mfccScorer = new MFCCPronunciationScorer(this);
-                if (mfccScorer.isReady()) {
-                    android.util.Log.d("StudentDetail", "✅ MFCC scorer initialized and ready");
-                } else {
-                    android.util.Log.w("StudentDetail", "⚠️ MFCC scorer initialized but model not ready");
-                }
+                pronunciationRecognizer = new MFCCPronunciationRecognizer(this);
+                android.util.Log.d("StudentDetail", "✅ MFCCPronunciationRecognizer created and ready");
+                Toast.makeText(this, "✅ Speech recognition ready", Toast.LENGTH_SHORT).show();
             } catch (Exception e) {
-                android.util.Log.e("StudentDetail", "❌ Failed to initialize MFCC scorer: " + e.getMessage(), e);
-                mfccScorer = null;
+                android.util.Log.e("StudentDetail", "❌ Failed to initialize MFCCPronunciationRecognizer: " + e.getMessage(), e);
+                pronunciationRecognizer = null;
             }
             
-            // Initialize Vosk recognizer
-            try {
-                voskRecognizer = new VoskMFCCRecognizer(this);
-                android.util.Log.d("StudentDetail", "✅ VoskMFCCRecognizer created");
-                
-                // Initialize Vosk model (async)
-                voskRecognizer.initializeModel(new VoskMFCCRecognizer.ModelInitCallback() {
-                    @Override
-                    public void onModelReady() {
-                        isVoskModelReady = true;
-                        android.util.Log.d("StudentDetail", "✅ Vosk model loaded and ready");
-                        runOnUiThread(() -> {
-                            Toast.makeText(StudentDetail.this, "✅ Speech recognition ready (Vosk)", Toast.LENGTH_SHORT).show();
-                        });
-                    }
-                    
-                    @Override
-                    public void onModelError(String error) {
-                        isVoskModelReady = false;
-                        android.util.Log.e("StudentDetail", "❌ Vosk model error: " + error);
-                        runOnUiThread(() -> {
-                            Toast.makeText(StudentDetail.this, "❌ Speech model error: " + error, Toast.LENGTH_LONG).show();
-                        });
-                    }
-                });
-                
-            } catch (Exception e) {
-                android.util.Log.e("StudentDetail", "❌ Failed to initialize VoskMFCCRecognizer: " + e.getMessage(), e);
-                voskRecognizer = null;
-            }
-            
-            // Using Vosk + MFCC for speech recognition
-            android.util.Log.d("StudentDetail", "ℹ️ Using Vosk + MFCC as the speech system");
+            // Using MFCC + ONNX Random Forest for pronunciation scoring (offline)
+            android.util.Log.d("StudentDetail", "ℹ️ Using MFCC + ONNX Random Forest pipeline (offline)");
             
             android.util.Log.d("StudentDetail", "=== SPEECH RECOGNITION INITIALIZATION COMPLETE ===");
             
@@ -246,7 +205,7 @@ public class StudentDetail extends AppCompatActivity {
         }
     }
     
-    /* REMOVED: Old test methods - no longer needed with Vosk implementation */
+    /* REMOVED: Old test methods - no longer needed with current implementation */
     
     /**
      * Comprehensive speech recognition diagnostic
@@ -295,10 +254,8 @@ public class StudentDetail extends AppCompatActivity {
         
         // Check components
         initialInfo.append("\n📱 COMPONENT STATUS:\n");
-        initialInfo.append("Vosk Recognizer: " + (voskRecognizer != null ? "✅ Available" : "❌ NULL") + "\n");
-        initialInfo.append("Vosk Model Ready: " + (isVoskModelReady ? "✅ Yes" : "❌ No") + "\n");
-        initialInfo.append("MFCC Scorer: " + (mfccScorer != null ? "✅ Available" : "❌ NULL") + "\n");
-        initialInfo.append("\nℹ️ Note: Using Vosk + MFCC + MispronunciationOverride\n");
+        initialInfo.append("Pronunciation Recognizer: " + (pronunciationRecognizer != null ? "✅ Available" : "❌ NULL") + "\n");
+        initialInfo.append("\nℹ️ Note: Using MFCC + ONNX Random Forest (offline, no speech-to-text)\n");
         
         initialInfo.append("\n🎤 READY FOR SPEECH TEST\n");
         initialInfo.append("Click 'Start 10-Second Test' and speak clearly.\n");
@@ -743,9 +700,9 @@ public class StudentDetail extends AppCompatActivity {
     private void runComprehensiveDiagnostics() {
         android.util.Log.d("StudentDetail", "=== STARTING COMPREHENSIVE DIAGNOSTICS ===");
         
-        // Check if Vosk is available
-        if (voskRecognizer == null) {
-            Toast.makeText(this, "❌ Vosk recognizer not initialized for diagnostics", Toast.LENGTH_LONG).show();
+        // Check if pronunciation recognizer is available
+        if (pronunciationRecognizer == null) {
+            Toast.makeText(this, "❌ Pronunciation recognizer not initialized for diagnostics", Toast.LENGTH_LONG).show();
             return;
         }
         
@@ -790,9 +747,8 @@ public class StudentDetail extends AppCompatActivity {
         
         // Check components
         initialInfo.append("\n📱 COMPONENT STATUS:\n");
-        initialInfo.append("Vosk Recognizer: " + (voskRecognizer != null ? "✅ Available" : "❌ NULL") + "\n");
-        initialInfo.append("Vosk Model Ready: " + (isVoskModelReady ? "✅ Yes" : "❌ No") + "\n");
-        initialInfo.append("\nℹ️ Note: Using Vosk + MFCC for testing\n");
+        initialInfo.append("Pronunciation Recognizer: " + (pronunciationRecognizer != null ? "✅ Available" : "❌ NULL") + "\n");
+        initialInfo.append("\nℹ️ Note: Using MFCC + ONNX Random Forest for testing\n");
         
         initialInfo.append("\n🎤 READY FOR SPEECH TEST\n");
         initialInfo.append("Click 'Start Test' and speak clearly.\n");
@@ -802,7 +758,7 @@ public class StudentDetail extends AppCompatActivity {
         
         // Set up the start test button
         dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            diagnosticText.append("🎙️ Starting speech test using Vosk...\n");
+            diagnosticText.append("🎙️ Starting speech test using MFCC + Random Forest...\n");
             diagnosticText.append("Speak clearly: 'once upon a time there was'\n\n");
             
             // Use basic speech recognition test
@@ -945,17 +901,9 @@ public class StudentDetail extends AppCompatActivity {
     }
 
     private void showPassageSelectionModal() {
-        // Check if Vosk model is ready before allowing reading
-        if (!isVoskModelReady) {
-            String message;
-            if (SpeakApplication.isVoskModelLoading) {
-                message = "⏳ Speech model is still loading, please wait...";
-            } else if (SpeakApplication.voskModelError != null) {
-                message = "❌ Speech model failed to load: " + SpeakApplication.voskModelError + "\n\nPlease restart the app.";
-            } else {
-                message = "❌ Speech model not ready. Please restart the app.";
-            }
-            
+        // Check if pronunciation recognizer is ready before allowing reading
+        if (pronunciationRecognizer == null) {
+            String message = "❌ Speech recognition not ready. Please restart the app.";
             android.util.Log.w("StudentDetail", "Cannot start reading: " + message);
             Toast.makeText(this, message, Toast.LENGTH_LONG).show();
             return;
@@ -1319,7 +1267,7 @@ public class StudentDetail extends AppCompatActivity {
                     android.util.Log.d("StudentDetail", "📊 Using WPM from database: " + wpm);
                 } else {
                     // Fallback calculation (offline mode - calculate from captured time)
-                    // Use float division for accuracy, matching VoskMFCCRecognizer calculation
+                    // Use float division for accuracy
                     wpm = (timeInSecondsFloat > 0 && wordsRead > 0) ? 
                         (int) ((wordsRead * 60.0f) / timeInSecondsFloat) : 0;
                     android.util.Log.d("StudentDetail", "📊 Calculated WPM from captured time (offline): " + wpm);
@@ -1349,7 +1297,7 @@ public class StudentDetail extends AppCompatActivity {
                 float accuracyPercentage = accuracy * 100;
                 
                 // Calculate combined score (50% accuracy + 50% pronunciation) for display
-                float pronunciation = hasFinalResults ? finalPronunciation : lastMFCCScore;
+                float pronunciation = hasFinalResults ? finalPronunciation : 0.0f;
                 float combinedScore = (accuracy * 0.5f) + (pronunciation * 0.5f);
                 float combinedPercentage = combinedScore * 100;
                 
@@ -1448,14 +1396,14 @@ public class StudentDetail extends AppCompatActivity {
     }
     
     /**
-     * Start continuous reading with timer integration using Vosk + MFCC
+     * Start continuous reading with timer integration using MFCC + ONNX Random Forest
      */
     private void startContinuousReadingWithTimer(String passageTitle, Dialog readingModal, ProgressBar progressBar, TextView progressText, TextView timerDisplay) {
-        android.util.Log.d("StudentDetail", "=== STARTING VOSK + MFCC READING ===");
+        android.util.Log.d("StudentDetail", "=== STARTING MFCC + ONNX RANDOM FOREST READING ===");
         android.util.Log.d("StudentDetail", "Passage: " + passageTitle);
         
-        // Check if Vosk model is ready
-        if (!isVoskModelReady || voskRecognizer == null) {
+        // Check if pronunciation recognizer is ready
+        if (pronunciationRecognizer == null) {
             Toast.makeText(this, "⏳ Speech recognition is loading... Please wait.", Toast.LENGTH_LONG).show();
             resetReadingButton(readingModal);
             return;
@@ -1495,12 +1443,12 @@ public class StudentDetail extends AppCompatActivity {
         // ── Initialize robust detection components ────────────────────────────────
         // PhoneticMatcher removed - was adding latency
         // WordTimeoutWatchdog removed - was causing buffering/stops
-        // Let Vosk handle continuous recognition naturally
+        // Let MFCC + Random Forest handle continuous recognition naturally
         awaitingWordIndex = 0;
         timedOutWords.clear();
         
         // No watchdog - continuous flow recognition
-        // Words will highlight as Vosk recognizes them naturally
+        // Words will highlight as pronunciation recognizer processes them naturally
         
         // Set recording state
         isCurrentlyRecording = true;
@@ -1510,44 +1458,35 @@ public class StudentDetail extends AppCompatActivity {
             startTimerUpdates(timerDisplay);
         }
         
-        // Start Vosk recognition with async Random Forest + MFCC + DistilBERT analysis
-        voskRecognizer.startRecognition(expectedWords, currentPassageText, studentId, studentName, passageTitle, new VoskMFCCRecognizer.RecognitionCallback() {
+        // Start MFCC + Random Forest pronunciation recognition
+        pronunciationRecognizer.startRecognition(expectedWords, currentPassageText, 
+                                                studentId, studentName, passageTitle,
+                                                new MFCCPronunciationRecognizer.RecognitionCallback() {
             @Override
             public void onReady() {
-                android.util.Log.d("StudentDetail", "✅ Vosk recognition ready");
+                android.util.Log.d("StudentDetail", "✅ Pronunciation recognition ready");
                 runOnUiThread(() -> {
                     Toast.makeText(StudentDetail.this, "🎤 Start reading now!", Toast.LENGTH_SHORT).show();
                 });
             }
             
             @Override
-            public void onWordRecognized(String recognizedWord, String expectedWord, int wordIndex, 
-                                        float pronunciationScore, boolean isCorrect) {
-                // ── FAST PATH: Check mispronunciation overrides (O(1) HashMap lookup) ──
-                // Catches common Filipino mispronunciations that Vosk might normalize
-                boolean finalCorrect = MispronunciationOverride.evaluate(
-                    recognizedWord, expectedWord, isCorrect);
-                
-                android.util.Log.d("StudentDetail", String.format(
-                    "📝 Word %d '%s' → heard '%s' | vosk=%b | final=%b",
-                    wordIndex, expectedWord, recognizedWord, isCorrect, finalCorrect));
+            public void onWordDetected(int wordIndex, String expectedWord) {
+                android.util.Log.d("StudentDetail", String.format("🎤 Word %d detected: '%s'", wordIndex, expectedWord));
                 
                 // Update tracking
-                currentWordsRead    = wordIndex + 1;
-                currentTotalWords   = expectedWords.length;
-                awaitingWordIndex   = wordIndex + 1;
+                currentWordsRead = wordIndex + 1;
+                currentTotalWords = expectedWords.length;
+                awaitingWordIndex = wordIndex + 1;
                 
-                // ── Update state and highlight ─────────────────────────────────────────
-                final boolean result = finalCorrect;
+                // Mark word as being processed
                 runOnUiThread(() -> {
-                    if (wordIndex >= 0 && wordIndex < wordCorrect.length) {
+                    if (wordIndex >= 0 && wordIndex < wordFinished.length) {
                         wordFinished[wordIndex] = true;
-                        wordScored[wordIndex] = true;  // Mark as scored so it shows GREEN/RED
-                        wordCorrect[wordIndex]  = result;  // Store result for RF to use later
-                        isProcessingWord        = false;
+                        isProcessingWord = true;
                         
                         if (passageContentView != null) {
-                            redrawHighlights(passageContentView);  // Will show YELLOW (finished but not scored)
+                            redrawHighlights(passageContentView);
                         }
                     }
                     
@@ -1557,40 +1496,74 @@ public class StudentDetail extends AppCompatActivity {
                         progressText.setText(pct + "%");
                     }
                 });
+            }
+            
+            @Override
+            public void onWordScored(int wordIndex, String expectedWord, float score, boolean isCorrect) {
+                android.util.Log.d("StudentDetail", String.format(
+                    "📝 Word %d '%s' scored: %.2f (%s)",
+                    wordIndex, expectedWord, score, isCorrect ? "✅ CORRECT" : "❌ INCORRECT"));
+                
+                // Update state with scoring result
+                final boolean result = isCorrect;
+                runOnUiThread(() -> {
+                    if (wordIndex >= 0 && wordIndex < wordCorrect.length) {
+                        wordScored[wordIndex] = true;
+                        wordCorrect[wordIndex] = result;
+                        isProcessingWord = false;
+                        
+                        if (passageContentView != null) {
+                            redrawHighlights(passageContentView);
+                        }
+                    }
+                });
                 
                 // Check if reading is complete
                 if (wordIndex >= expectedWords.length - 1) {
-                    android.util.Log.d("StudentDetail", "🎉 Last word reached!");
+                    android.util.Log.d("StudentDetail", "🎉 Last word scored!");
                     new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                        if (voskRecognizer != null && voskRecognizer.isRecognizing()) {
-                            voskRecognizer.stopRecognition();
+                        if (pronunciationRecognizer != null) {
+                            pronunciationRecognizer.stopRecognition();
                         }
                     }, 1000);
                 }
             }
             
             @Override
-            public void onPartialResult(String partial) {
-                // Partial results are for logging ONLY.
-                // They no longer drive highlighting — onWordRecognized is the sole driver.
-                // This eliminates the highlight-jumping-ahead bug entirely.
-                if (partial != null && !partial.isEmpty()) {
-                    android.util.Log.v("StudentDetail", "Partial (display-only): " + partial);
-                }
-            }
-            
-            @Override
-            public void onComplete(float overallAccuracy, float averagePronunciation, float comprehensionScore, ReadingLevelClassifier.ReadingLevelResult readingLevel) {
-                android.util.Log.d("StudentDetail", String.format("✅ Reading complete! Waiting for RF analysis..."));
+            public void onComplete(float overallAccuracy, float averagePronunciation, 
+                                 float comprehensionScore, ReadingLevelClassifier.ReadingLevelResult readingLevel) {
+                android.util.Log.d("StudentDetail", String.format(
+                    "✅ Reading complete! Accuracy: %.1f%%, Pronunciation: %.1f%%, Comprehension: %.1f%%, Level: %s",
+                    overallAccuracy * 100, averagePronunciation * 100, comprehensionScore * 100, readingLevel.levelName));
                 
-                // Store preliminary results (will be updated by RF)
+                // Store final results
                 finalReadingAccuracy = overallAccuracy;
                 finalPronunciation = averagePronunciation;
                 finalReadingLevelName = readingLevel.levelName;
-                lastMFCCScore = averagePronunciation;
                 finalReadingTimeMs = getActualElapsedTime();
                 finalWordsRead = currentWordsRead;
                 hasFinalResults = true;
+                
+                // Calculate correct/incorrect counts
+                int correctCount = 0;
+                int incorrectCount = 0;
+                for (int i = 0; i < wordCorrect.length; i++) {
+                    if (wordScored[i]) {
+                        if (wordCorrect[i]) {
+                            correctCount++;
+                        } else {
+                            incorrectCount++;
+                        }
+                    }
+                }
+                currentCorrectWords = correctCount;
+                currentIncorrectWords = incorrectCount;
+                currentAccuracy = overallAccuracy;
+                
+                // Calculate WPM
+                float timeInSeconds = finalReadingTimeMs / 1000.0f;
+                finalWpm = (timeInSeconds > 0 && finalWordsRead > 0) ? 
+                    (finalWordsRead * 60.0f) / timeInSeconds : 0.0f;
                 
                 runOnUiThread(() -> {
                     // Stop timer immediately
@@ -1606,215 +1579,32 @@ public class StudentDetail extends AppCompatActivity {
                     isCurrentlyRecording = false;
                     resetReadingButton(readingModal);
                     
-                    // Show "Calculating results..." toast
-                    showImportantToast("⏳ Calculating results...");
-                    
-                    // Disable and darken buttons during analysis
-                    Button showResultsButton = readingModal.findViewById(R.id.showResultsButton);
-                    Button microphoneButton = readingModal.findViewById(R.id.microphoneButton);
-                    
-                    if (showResultsButton != null) {
-                        showResultsButton.setText("Analyzing...");
-                        showResultsButton.setEnabled(false);
-                        showResultsButton.setAlpha(0.5f); // Darken button
-                        android.util.Log.d("StudentDetail", "⏳ Show Results button disabled during analysis");
-                    }
-                    
-                    if (microphoneButton != null) {
-                        microphoneButton.setEnabled(false);
-                        microphoneButton.setAlpha(0.5f); // Darken button
-                        android.util.Log.d("StudentDetail", "⏳ Microphone button disabled during analysis");
-                    }
-                    
-                    android.util.Log.d("StudentDetail", "⏳ Waiting for RF analysis to complete...");
-                });
-            }
-            
-            @Override
-            public void onComprehensionUpdated(float comprehensionScore) {
-                android.util.Log.d("StudentDetail", String.format("📊 Comprehension updated: %.0f%%", comprehensionScore * 100));
-                // Comprehension calculated async - already saved to database
-                // UI already showed estimated score, no need to update
-            }
-            
-            @Override
-            public void onPronunciationUpdated(float pronunciationScore) {
-                android.util.Log.d("StudentDetail", String.format("🎤 Pronunciation updated from Random Forest: %.0f%%", pronunciationScore * 100));
-                // Update stored pronunciation score with accurate Random Forest result
-                lastMFCCScore = pronunciationScore;
-                finalPronunciation = pronunciationScore;
-                
-                // Recalculate combined score with updated pronunciation
-                runOnUiThread(() -> {
-                    if (hasFinalResults) {
-                        float combinedScore = (finalReadingAccuracy * 0.5f) + (pronunciationScore * 0.5f);
-                        
-                        android.util.Log.d("StudentDetail", String.format("📊 Updated scores - Combined: %.0f%%, Accuracy: %.0f%%, Pronunciation: %.0f%%",
-                            combinedScore * 100, finalReadingAccuracy * 100, pronunciationScore * 100));
-                    }
-                });
-            }
-            
-            @Override
-            public void onRFAnalysisComplete(List<Boolean> wordCorrectness) {
-                android.util.Log.d("StudentDetail", "═══════════════════════════════════════════════════════");
-                android.util.Log.d("StudentDetail", "✅ RF ANALYSIS COMPLETE - Updating word colors");
-                android.util.Log.d("StudentDetail", String.format("   Received %d word results", wordCorrectness.size()));
-                android.util.Log.d("StudentDetail", String.format("   wordCorrect.length=%d, wordScored.length=%d, wordFinished.length=%d",
-                    wordCorrect.length, wordScored.length, wordFinished.length));
-                
-                runOnUiThread(() -> {
-                    // Update button text to show saving progress
-                    Button showResultsButton = readingModal.findViewById(R.id.showResultsButton);
-                    if (showResultsButton != null) {
-                        showResultsButton.setText("Saving...");
-                        android.util.Log.d("StudentDetail", "💾 Updating button: Saving results...");
-                    }
-                    
-                    // Update word correctness based on RF results
-                    int correctCount = 0;
-                    int incorrectCount = 0;
-                    
-                    android.util.Log.d("StudentDetail", String.format("🎨 Updating %d words with RF results", wordCorrectness.size()));
-                    
-                    for (int i = 0; i < wordCorrectness.size() && i < wordCorrect.length; i++) {
-                        boolean isCorrect = wordCorrectness.get(i);
-                        
-                        // Log BEFORE update for first 10 words
-                        if (i < 10) {
-                            android.util.Log.d("StudentDetail", String.format("   Word %d BEFORE: finished=%b, scored=%b, correct=%b", 
-                                i, wordFinished[i], wordScored[i], wordCorrect[i]));
-                        }
-                        
-                        wordCorrect[i] = isCorrect;
-                        wordScored[i] = true; // Now scored by RF
-                        wordFinished[i] = true; // Ensure word is marked as finished
-                        
-                        if (isCorrect) {
-                            correctCount++;
-                        } else {
-                            incorrectCount++;
-                        }
-                        
-                        // Log AFTER update for first 10 words
-                        if (i < 10) {
-                            android.util.Log.d("StudentDetail", String.format("   Word %d AFTER: %s (finished=%b, scored=%b, correct=%b)", 
-                                i, isCorrect ? "✅ CORRECT" : "❌ INCORRECT", wordFinished[i], wordScored[i], wordCorrect[i]));
-                        }
-                    }
-                    
-                    // Update session data with RF results
-                    currentCorrectWords = correctCount;
-                    currentIncorrectWords = incorrectCount;
-                    currentAccuracy = currentTotalWords > 0 ? (float)correctCount / currentTotalWords : 0.0f;
-                    
-                    android.util.Log.d("StudentDetail", String.format("   RF Results: %d correct, %d incorrect (%.1f%% accuracy)",
-                        correctCount, incorrectCount, currentAccuracy * 100));
-                    android.util.Log.d("StudentDetail", String.format("   Expected from results modal: ~%d incorrect", 
-                        currentTotalWords - correctCount));
-                    
-                    // Redraw passage with accurate red/green colors
-                    android.util.Log.d("StudentDetail", "🎨 Calling redrawHighlights with passageContentView...");
+                    // Redraw passage with final colors
                     if (passageContentView != null) {
                         redrawHighlights(passageContentView);
-                        passageContentView.invalidate(); // Force UI refresh
-                        android.util.Log.d("StudentDetail", "✅ redrawHighlights completed and view invalidated");
-                    } else {
-                        android.util.Log.e("StudentDetail", "❌ passageContentView is NULL - cannot redraw!");
+                        passageContentView.invalidate();
                     }
                     
-                    android.util.Log.d("StudentDetail", "✅ Passage updated with accurate RF colors");
-                    android.util.Log.d("StudentDetail", "═══════════════════════════════════════════════════════");
+                    // Save session to Firebase
+                    saveReadingSession(passageTitle);
                     
-                    // Safety timeout: If onSessionSaved doesn't fire within 3 seconds, re-enable buttons
-                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                        Button timeoutShowResultsButton = readingModal.findViewById(R.id.showResultsButton);
-                        Button timeoutMicrophoneButton = readingModal.findViewById(R.id.microphoneButton);
-                        
-                        if (timeoutShowResultsButton != null && !timeoutShowResultsButton.isEnabled()) {
-                            android.util.Log.w("StudentDetail", "⚠️ Session save timeout - re-enabling buttons with local data");
-                            timeoutShowResultsButton.setText("View Results");
-                            timeoutShowResultsButton.setEnabled(true);
-                            timeoutShowResultsButton.setAlpha(1.0f);
-                            
-                            if (timeoutMicrophoneButton != null) {
-                                timeoutMicrophoneButton.setEnabled(true);
-                                timeoutMicrophoneButton.setAlpha(1.0f);
-                            }
-                            
-                            showImportantToast("⚠️ Showing results (offline mode)");
-                            timeoutShowResultsButton.performClick();
-                        }
-                    }, 3000);
-                });
-            }
-            
-            @Override
-            public void onRFAnalysisCompleteWithConfidence(List<Boolean> wordCorrectness, List<Float> wordConfidences) {
-                // Use the simpler callback above - confidence scores not needed for UI
-                android.util.Log.d("StudentDetail", "📊 RF analysis with confidence scores received");
-            }
-            
-            @Override
-            public void onSessionSaved(ReadingSession savedSession) {
-                android.util.Log.d("StudentDetail", "═══════════════════════════════════════════════════════");
-                android.util.Log.d("StudentDetail", "💾 SESSION SAVED CALLBACK RECEIVED");
-                android.util.Log.d("StudentDetail", String.format("💾 Saved session data - Accuracy: %.1f%%, Pronunciation: %.1f%%, WPM: %.0f, Level: %s",
-                    savedSession.getAccuracy() * 100, savedSession.getPronunciation() * 100, 
-                    savedSession.getWpm(), savedSession.getReadingLevelName()));
-                android.util.Log.d("StudentDetail", "═══════════════════════════════════════════════════════");
-                
-                // Update stored values with database session data FIRST
-                runOnUiThread(() -> {
-                    finalReadingAccuracy = savedSession.getAccuracy();
-                    finalPronunciation = savedSession.getPronunciation();
-                    finalReadingLevelName = savedSession.getReadingLevelName();
-                    finalWordsRead = savedSession.getTotalWords();
-                    finalWpm = savedSession.getWpm(); // ← Store WPM from database, don't recalculate
-                    // ❌ Don't reverse-engineer time from WPM — use what was captured in onComplete
-                    // finalReadingTimeMs already set correctly in onComplete()
+                    // Show completion toast
+                    showImportantToast("✅ Reading complete!");
                     
-                    // Also update current values so setupReadingResultsModalComponents uses DB data
-                    currentCorrectWords = savedSession.getCorrectWords();
-                    currentIncorrectWords = savedSession.getTotalWords() - savedSession.getCorrectWords();
-                    currentAccuracy = savedSession.getAccuracy();
-                    
-                    android.util.Log.d("StudentDetail", "✅ UI variables updated with saved session data");
-                    android.util.Log.d("StudentDetail", String.format("   finalReadingAccuracy: %.1f%%", finalReadingAccuracy * 100));
-                    android.util.Log.d("StudentDetail", String.format("   finalPronunciation: %.1f%%", finalPronunciation * 100));
-                    android.util.Log.d("StudentDetail", String.format("   finalWpm: %.0f", finalWpm));
-                    android.util.Log.d("StudentDetail", String.format("   finalReadingTimeMs: %d ms", finalReadingTimeMs));
-                    android.util.Log.d("StudentDetail", String.format("   finalWordsRead: %d", finalWordsRead));
-                    android.util.Log.d("StudentDetail", "═══════════════════════════════════════════════════════");
-                    android.util.Log.d("StudentDetail", "📊 RESULTS MODAL ↔ PROGRESS REPORTS SYNC:");
-                    android.util.Log.d("StudentDetail", String.format("   currentCorrectWords: %d (from database)", currentCorrectWords));
-                    android.util.Log.d("StudentDetail", String.format("   currentIncorrectWords: %d (from database)", currentIncorrectWords));
-                    android.util.Log.d("StudentDetail", "   ✅ These values will be shown in Results Modal");
-                    android.util.Log.d("StudentDetail", "   ✅ These values match what's in Progress Reports");
-                    android.util.Log.d("StudentDetail", "   ✅ Both use the same database session data");
-                    android.util.Log.d("StudentDetail", "═══════════════════════════════════════════════════════");
-                    
-                    // Re-enable and restore buttons
+                    // Enable results button
                     Button showResultsButton = readingModal.findViewById(R.id.showResultsButton);
                     Button microphoneButton = readingModal.findViewById(R.id.microphoneButton);
                     
                     if (showResultsButton != null) {
                         showResultsButton.setText("View Results");
                         showResultsButton.setEnabled(true);
-                        showResultsButton.setAlpha(1.0f); // Restore full opacity
-                        android.util.Log.d("StudentDetail", "✅ Show Results button re-enabled");
+                        showResultsButton.setAlpha(1.0f);
                     }
                     
                     if (microphoneButton != null) {
                         microphoneButton.setEnabled(true);
-                        microphoneButton.setAlpha(1.0f); // Restore full opacity
-                        android.util.Log.d("StudentDetail", "✅ Microphone button re-enabled");
+                        microphoneButton.setAlpha(1.0f);
                     }
-                    
-                    // Show completion toast
-                    showImportantToast("✅ Results ready!");
-                    
-                    android.util.Log.d("StudentDetail", "📊 Auto-showing results modal with accurate database data");
                     
                     // Auto-show results modal
                     if (showResultsButton != null) {
@@ -1825,7 +1615,7 @@ public class StudentDetail extends AppCompatActivity {
             
             @Override
             public void onError(String error) {
-                android.util.Log.e("StudentDetail", "❌ Vosk error: " + error);
+                android.util.Log.e("StudentDetail", "❌ Recognition error: " + error);
                 runOnUiThread(() -> {
                     // Re-enable buttons on error
                     Button showResultsButton = readingModal.findViewById(R.id.showResultsButton);
@@ -1848,7 +1638,7 @@ public class StudentDetail extends AppCompatActivity {
             }
         });
         
-        android.util.Log.d("StudentDetail", "✅ Vosk + MFCC recognition started");
+        android.util.Log.d("StudentDetail", "✅ MFCC + ONNX Random Forest recognition started");
     }
     
     /**
@@ -2172,13 +1962,13 @@ public class StudentDetail extends AppCompatActivity {
         isCurrentlyRecording = true;
         
         // Start continuous reading immediately
-        android.util.Log.d("StudentDetail", "🌊 Auto-starting Vosk reading for: " + passageTitle);
+        android.util.Log.d("StudentDetail", "🌊 Auto-starting MFCC + Random Forest reading for: " + passageTitle);
         
-        // Check if Vosk is ready
-        if (voskRecognizer != null && isVoskModelReady) {
+        // Check if pronunciation recognizer is ready
+        if (pronunciationRecognizer != null) {
             startContinuousReadingWithTimer(passageTitle, readingModal, progressBar, progressText, null);
         } else {
-            android.util.Log.e("StudentDetail", "❌ Vosk recognizer not available");
+            android.util.Log.e("StudentDetail", "❌ Pronunciation recognizer not available");
             Toast.makeText(this, "⏳ Speech recognition is loading... Please wait.", Toast.LENGTH_LONG).show();
             isCurrentlyRecording = false;
         }
@@ -2290,12 +2080,12 @@ public class StudentDetail extends AppCompatActivity {
     }
 
     private void startSpeechRecognition(String passageTitle, Dialog readingModal, ProgressBar progressBar, TextView progressText) {
-        // Use Vosk + MFCC for speech recognition
-        if (voskRecognizer != null && isVoskModelReady) {
+        // Use MFCC + Random Forest for speech recognition
+        if (pronunciationRecognizer != null) {
             TextView timerDisplay = readingModal.findViewById(R.id.timerDisplay);
             startContinuousReadingWithTimer(passageTitle, readingModal, progressBar, progressText, timerDisplay);
         } else {
-            android.util.Log.e("StudentDetail", "❌ Vosk recognizer not ready!");
+            android.util.Log.e("StudentDetail", "❌ Pronunciation recognizer not ready!");
             Toast.makeText(this, "⏳ Speech recognition is loading... Please wait.", Toast.LENGTH_LONG).show();
         }
     }
@@ -2354,13 +2144,13 @@ public class StudentDetail extends AppCompatActivity {
     }
 
     private void stopSpeechRecognition() {
-        android.util.Log.d("StudentDetail", "🛑 Stopping Vosk recognition...");
+        android.util.Log.d("StudentDetail", "🛑 Stopping pronunciation recognition...");
         
         try {
-            // Stop Vosk recognizer
-            if (voskRecognizer != null && voskRecognizer.isRecognizing()) {
-                voskRecognizer.stopRecognition();
-                android.util.Log.d("StudentDetail", "✅ Stopped Vosk recognition");
+            // Stop pronunciation recognizer
+            if (pronunciationRecognizer != null) {
+                pronunciationRecognizer.stopRecognition();
+                android.util.Log.d("StudentDetail", "✅ Stopped pronunciation recognition");
             }
             
             // Reset recording state
@@ -2472,6 +2262,49 @@ public class StudentDetail extends AppCompatActivity {
         
         return feedback.toString();
     }
+    
+    /**
+     * Save reading session to Firebase
+     */
+    private void saveReadingSession(String passageTitle) {
+        android.util.Log.d("StudentDetail", "💾 Saving reading session to Firebase...");
+        
+        try {
+            // Create reading session object
+            ReadingSession session = new ReadingSession(studentId, studentName, passageTitle, currentPassageText);
+            session.setAccuracy(finalReadingAccuracy);
+            session.setPronunciation(finalPronunciation);
+            session.setComprehension(0.0f); // Not calculated in this version
+            session.setWpm(finalWpm);
+            session.setCorrectWords(currentCorrectWords);
+            session.setTotalWords(currentTotalWords);
+            session.setReadingLevelName(finalReadingLevelName);
+            session.setTeacherId(teacherName); // Use teacher name as teacher ID
+            
+            // Save to Firebase
+            ReadingSessionRepository repository = new ReadingSessionRepository();
+            repository.saveSession(session, new ReadingSessionRepository.OnSessionSavedListener() {
+                @Override
+                public void onSuccess(ReadingSession savedSession) {
+                    android.util.Log.d("StudentDetail", "✅ Session saved successfully");
+                    runOnUiThread(() -> {
+                        Toast.makeText(StudentDetail.this, "✅ Session saved", Toast.LENGTH_SHORT).show();
+                    });
+                }
+                
+                @Override
+                public void onFailure(String error) {
+                    android.util.Log.e("StudentDetail", "❌ Failed to save session: " + error);
+                    runOnUiThread(() -> {
+                        Toast.makeText(StudentDetail.this, "⚠️ Session save failed (offline mode)", Toast.LENGTH_SHORT).show();
+                    });
+                }
+            });
+            
+        } catch (Exception e) {
+            android.util.Log.e("StudentDetail", "❌ Error creating session: " + e.getMessage(), e);
+        }
+    }
 
     private void startListeningActivity(String passageTitle, Dialog readingModal) {
         Toast.makeText(this, "Playing audio for: " + passageTitle, Toast.LENGTH_SHORT).show();
@@ -2526,19 +2359,14 @@ public class StudentDetail extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        // Clean up Vosk recognizer
-        if (voskRecognizer != null) {
-            voskRecognizer.release();
-            voskRecognizer = null;
-            android.util.Log.d("StudentDetail", "✅ Vosk recognizer released");
+        // Clean up pronunciation recognizer
+        if (pronunciationRecognizer != null) {
+            pronunciationRecognizer.release();
+            pronunciationRecognizer = null;
+            android.util.Log.d("StudentDetail", "✅ Pronunciation recognizer released");
         }
         
-        // Clean up MFCC resources
-        if (mfccScorer != null) {
-            mfccScorer.close();
-            mfccScorer = null;
-            android.util.Log.d("StudentDetail", "✅ MFCC scorer closed");
-        }
+        // MFCC resources are managed by MFCCPronunciationRecognizer
         
         // Clean up timer
         resetTimer();
