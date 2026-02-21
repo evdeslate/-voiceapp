@@ -90,9 +90,6 @@ dependencies {
     // ONNX Runtime for Android - for Random Forest models
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.16.3")
     
-    // Vosk speech recognition - offline, lightweight (for real-time highlighting)
-    implementation("com.alphacephei:vosk-android:0.3.47")
-    
     // Text processing for BERT NLP
     implementation("org.apache.commons:commons-text:1.9")
     
