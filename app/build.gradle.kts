@@ -56,6 +56,9 @@ android {
         abortOnError = false
         checkReleaseBuilds = false
     }
+    buildFeatures {
+        mlModelBinding = true
+    }
 }
 
 dependencies {
